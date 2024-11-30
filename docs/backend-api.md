@@ -1,10 +1,4 @@
-### Full API Description for the Electric Scooter Speed Control System with Manual Video Annotation
-
----
-
 ### **1. Authorization and Authentication (Auth API)**
-
-Endpoints for user authorization and authentication to ensure secure access to the system.
 
 #### 1.1 **User Registration**  
 - **POST /api/auth/register**  
@@ -20,7 +14,7 @@ Endpoints for user authorization and authentication to ensure secure access to t
       "message": "User registered successfully"
     }
     ```
-  
+
 #### 1.2 **User Login**  
 - **POST /api/auth/login**  
   - **Description**: Authenticate user and obtain access token.  
@@ -35,7 +29,7 @@ Endpoints for user authorization and authentication to ensure secure access to t
       "refresh_token": "your_refresh_token"
     }
     ```
-  
+
 #### 1.3 **Refresh Token**  
 - **POST /api/auth/refresh_token**  
   - **Description**: Refresh the access token using a refresh token.  
@@ -52,8 +46,6 @@ Endpoints for user authorization and authentication to ensure secure access to t
 ---
 
 ### **2. Data Upload and Management (Data Upload API)**
-
-Endpoints for uploading and managing video files, as well as handling CSV data for speed and geolocation.
 
 #### 2.1 **Upload Video**  
 - **POST /api/data/upload_video**  
@@ -97,11 +89,37 @@ Endpoints for uploading and managing video files, as well as handling CSV data f
     }
     ```
 
+#### 2.4 **Add Timestamps for Button Data**  
+- **POST /api/data/add_button_timestamp**  
+  - **Description**: Add timestamp information to the button data file.  
+  - **Parameters**:  
+    - `video_id` (string): The video ID to associate with the timestamped button data.  
+    - `button_data_with_timestamps` (array): Array of button press data with associated timestamps. Each entry contains `timestamp` (int) and `button_state` (int).  
+  - **Response**:  
+    ```json
+    {
+      "status": "success",
+      "message": "Button data with timestamps added successfully"
+    }
+    ```
+
+#### 2.5 **Add Timestamps for Video Data**  
+- **POST /api/data/add_video_timestamp**  
+  - **Description**: Add or adjust timestamps for video data to synchronize with other data (such as button data or geolocation).  
+  - **Parameters**:  
+    - `video_id` (string): The video ID to add timestamps for.  
+    - `video_data_with_timestamps` (array): Array of video data with timestamps. Each entry contains `timestamp` (int) and `video_segment` (string).  
+  - **Response**:  
+    ```json
+    {
+      "status": "success",
+      "message": "Video timestamps added/adjusted successfully"
+    }
+    ```
+
 ---
 
 ### **3. Annotation and Synchronization Management (Annotation API)**
-
-Endpoints for managing video annotations, including the ability to edit and commit annotations.
 
 #### 3.1 **Get the First Available Unannotated Video**  
 - **GET /api/videos/next_unannotated**  
@@ -118,36 +136,30 @@ Endpoints for managing video annotations, including the ability to edit and comm
     }
     ```
 
-#### 3.2 **Lock Video for Annotation**  
-- **POST /api/annotations/{video_id}/lock**  
-  - **Description**: Lock a video for annotation.  
-  - **Parameters**:  
-    - `video_id` (string): The video ID to lock.  
-  - **Response**:  
-    ```json
-    {
-      "status": "locked",
-      "video_id": "string",
-      "locked_by": "user_id",
-      "lock_time": "timestamp"
-    }
-    ```
-
-#### 3.3 **Start Annotation (Manual Labeling)**  
+#### 3.2 **Start Annotation (Lock and Start Annotating)**  
 - **POST /api/annotations/{video_id}/start**  
-  - **Description**: Start annotating the video.  
+  - **Description**: Start annotating a video. The video will be locked to prevent other users from annotating it at the same time.  
   - **Parameters**:  
     - `video_id` (string): The video ID to start annotating.  
-  - **Response**:  
+  - **Response (Success)**:  
     ```json
     {
       "status": "started",
       "video_id": "string",
-      "user_id": "user_id"
+      "user_id": "user_id",
+      "locked_by": "user_id",
+      "lock_time": "timestamp"
+    }
+    ```
+  - **Response (Error - Video Locked)**:  
+    ```json
+    {
+      "status": "error",
+      "message": "Video is already locked by another user"
     }
     ```
 
-#### 3.4 **Commit Annotations**  
+#### 3.3 **Commit Annotations**  
 - **POST /api/annotations/{video_id}/commit**  
   - **Description**: Commit the annotations for a video.  
   - **Parameters**:  
@@ -164,7 +176,7 @@ Endpoints for managing video annotations, including the ability to edit and comm
     }
     ```
 
-#### 3.5 **Unlock Video After Annotation**  
+#### 3.4 **Unlock Video After Annotation**  
 - **POST /api/annotations/{video_id}/unlock**  
   - **Description**: Unlock a video after annotation is complete.  
   - **Parameters**:  
@@ -177,11 +189,37 @@ Endpoints for managing video annotations, including the ability to edit and comm
     }
     ```
 
+#### 3.5 **Shift Video Timestamp**  
+- **POST /api/annotations/{video_id}/shift_timestamp**  
+  - **Description**: Shift the video timestamps by a given offset to synchronize it with other data (e.g., button data or speed data).  
+  - **Parameters**:  
+    - `video_id` (string): The video ID whose timestamp needs to be shifted.  
+    - `timestamp_offset` (float): The amount of time (in seconds) to shift the video timestamps.  
+  - **Response**:  
+    ```json
+    {
+      "status": "success",
+      "message": "Video timestamps shifted successfully"
+    }
+    ```
+
+#### 3.6 **Shift Button Data Timestamp**  
+- **POST /api/annotations/{video_id}/shift_button_timestamp**  
+  - **Description**: Shift the button data timestamps by a given offset.  
+  - **Parameters**:  
+    - `video_id` (string): The video ID whose button data timestamps need to be shifted.  
+    - `timestamp_offset` (float): The amount of time (in seconds) to shift the button data timestamps.  
+  - **Response**:  
+    ```json
+    {
+      "status": "success",
+      "message": "Button data timestamps shifted successfully"
+    }
+    ```
+
 ---
 
 ### **4. Inference Model (Inference API)**
-
-Endpoints for working with the pre-trained machine learning model to perform inference (predictions) on videos.
 
 #### 4.1 **Run Inference on a Video**  
 - **POST /api/inference/run**  
@@ -203,8 +241,6 @@ Endpoints for working with the pre-trained machine learning model to perform inf
 
 ### **5. Geolocation and Map Display (Geolocation API)**
 
-Endpoints for working with geolocation data and displaying it on a map.
-
 #### 5.1 **Get Geolocation Data for a Video**  
 - **GET /api/geolocation/{video_id}**  
   - **Description**: Retrieve geolocation data for a video to display on a map.  
@@ -224,8 +260,6 @@ Endpoints for working with geolocation data and displaying it on a map.
 
 ### **6. User Management API (User Management API)**
 
-Endpoints for managing user data and roles.
-
 #### 6.1 **Get User Information**  
 - **GET /api/users/{user_id}**  
   - **Description**: Get information about a user.  
@@ -236,7 +270,9 @@ Endpoints for managing user data and roles.
     {
       "user_id": "string",
       "username": "string",
-      "email": "string",
+      "
+
+email": "string",
       "role": "string"
     }
     ```
@@ -254,56 +290,3 @@ Endpoints for managing user data and roles.
       "message": "User info updated"
     }
     ```
-
----
-
-### **7. Video Locking and Annotation Management (Video Annotation API)**
-
-Endpoints for working with video locking, unlocking, and annotations.
-
-#### 7.1 **Get the First Available Unannotated Video**  
-- **GET /api/videos/next_unannotated**  
-  - **Description**: Retrieve the first unannotated and unblocked video.  
-  - **Response**:  
-    ```json
-    {
-      "video_id": "string",
-      "title": "Video title",
-      "upload_date": "timestamp",
-      "status": "unannotated",
-      "locked_by": null,
-      "
-
-lock_time": null
-    }
-    ```
-
-#### 7.2 **Lock Video for Annotation**  
-- **POST /api/annotations/{video_id}/lock**  
-  - **Description**: Lock a video for annotation, preventing other users from annotating it simultaneously.  
-  - **Parameters**:  
-    - `video_id` (string): The video ID to lock.  
-  - **Response**:  
-    ```json
-    {
-      "status": "locked",
-      "video_id": "string",
-      "locked_by": "user_id",
-      "lock_time": "timestamp"
-    }
-    ```
-
-#### 7.3 **Unlock Video After Annotation**  
-- **POST /api/annotations/{video_id}/unlock**  
-  - **Description**: Unlock the video after annotation is complete.  
-  - **Parameters**:  
-    - `video_id` (string): The video ID to unlock.  
-  - **Response**:  
-    ```json
-    {
-      "status": "unlocked",
-      "video_id": "string"
-    }
-    ```
-
----
