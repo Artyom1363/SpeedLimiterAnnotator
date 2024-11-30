@@ -1,0 +1,35 @@
+# Path: backend/docker-compose.test.yml
+services:
+  test_db:
+    image: postgres:14
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: test_db
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test -d test_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  test_backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://test:test@test_db:5432/test_db
+      - TESTING=true
+      - AWS_ACCESS_KEY_ID=testing
+      - AWS_SECRET_ACCESS_KEY=testing
+      - AWS_SECURITY_TOKEN=testing
+      - AWS_SESSION_TOKEN=testing
+      - S3_BUCKET=test-bucket
+    volumes:
+      - .:/code
+      - ./tests/test_data:/code/tests/test_data:ro
+    depends_on:
+      test_db:
+        condition: service_healthy
+    command: pytest -v --cov=app --cov-report=term-missing
