@@ -15,6 +15,8 @@ from app.database import Base, get_db
 from app.main import app
 from app.models import User
 
+from .test_data import get_test_button_data_path, get_test_speed_data_path
+
 # Test database URL
 TEST_DATABASE_URL = "postgresql+asyncpg://test:test@test_db:5432/test_db"
 
