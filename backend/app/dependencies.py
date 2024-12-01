@@ -5,6 +5,7 @@ from jose import JWTError, jwt
 from datetime import datetime, timedelta
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
+from passlib.context import CryptContext
 from . import crud, models, schemas
 from .database import get_db
 import os
@@ -14,12 +15,15 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
 
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ) -> models.User:
+    print(f"Validating token: {token}")  # Для отладки
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -29,16 +33,19 @@ async def get_current_user(
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id: str = payload.get("sub")
+        print(f"Decoded user_id from token: {user_id}")  # Для отладки
         if user_id is None:
             raise credentials_exception
-        token_data = schemas.TokenData(user_id=user_id)
-    except JWTError:
+    except JWTError as e:
+        print(f"JWT decode error: {e}")  # Для отладки
         raise credentials_exception
         
-    user = await crud.get_user(db, user_id=token_data.user_id)
+    user = await crud.get_user(db, user_id=user_id)
     if user is None:
+        print(f"User not found for id: {user_id}")  # Для отладки
         raise credentials_exception
     return user
+
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()

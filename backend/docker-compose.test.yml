@@ -25,10 +25,10 @@ services:
       - AWS_SECRET_ACCESS_KEY=testing
       - AWS_SECURITY_TOKEN=testing
       - AWS_SESSION_TOKEN=testing
-      - S3_BUCKET=test-bucket
+      - AWS_DEFAULT_REGION=ru-central1
     volumes:
       - .:/code
-      - ./tests/test_data:/code/tests/test_data:ro
+      - ./tests/test_data:/code/tests/test_data:rw
     depends_on:
       test_db:
         condition: service_healthy

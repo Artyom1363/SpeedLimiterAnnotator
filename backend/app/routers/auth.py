@@ -56,12 +56,9 @@ async def login(
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.id}, expires_delta=access_token_expires
-    )
-    refresh_token = create_refresh_token(data={"sub": user.id})
+
+    access_token = user.get_token()
+    refresh_token = create_refresh_token({"sub": user.id})
     
     return {
         "access_token": access_token,

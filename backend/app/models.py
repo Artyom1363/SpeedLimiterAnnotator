@@ -22,7 +22,10 @@ class User(Base):
     def get_token(self) -> str:
         """Generate JWT token for this user"""
         from app.dependencies import create_access_token
-        return create_access_token({"sub": self.id})
+        from datetime import timedelta
+        data = {"sub": str(self.id)}
+        expires_delta = timedelta(minutes=30)
+        return create_access_token(data=data, expires_delta=expires_delta)
 
 
 class Video(Base):
