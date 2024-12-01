@@ -26,45 +26,82 @@ s3_client = boto3.client(
 )
 BUCKET_NAME = os.getenv('S3_BUCKET_NAME')
 
+MAX_FILE_SIZE = 500 * 1024 * 1024  # 500 MB
+
 @router.post("/upload_video", response_model=schemas.DataResponse)
 async def upload_video(
     video_file: UploadFile = File(...),
     current_user: models.User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    if not video_file.content_type.startswith('video/'):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File must be a video"
-        )
-    
-    # Generate S3 key
-    s3_key = f"videos/{current_user.id}/{video_file.filename}"
-    
     try:
-        # Upload to S3
-        await s3_client.upload_fileobj(
-            video_file.file,
-            BUCKET_NAME,
-            s3_key,
-            ExtraArgs={'ContentType': video_file.content_type}
-        )
+        # Проверка типа файла
+        if not video_file.content_type.startswith('video/'):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="File must be a video"
+            )
+
+        # Генерация S3 ключа
+        s3_key = f"videos/{current_user.id}/{video_file.filename}"
         
-        # Create video record in database
+        # Создание временного файла для проверки размера и загрузки в S3
+        temp_file_path = f"/code/uploads/{video_file.filename}"
+        file_size = 0
+        
+        async with aiofiles.open(temp_file_path, 'wb') as out_file:
+            while True:
+                chunk = await video_file.read(1024 * 1024)  # читаем по 1MB
+                if not chunk:
+                    break
+                file_size += len(chunk)
+                if file_size > MAX_FILE_SIZE:
+                    # Удаляем временный файл
+                    os.remove(temp_file_path)
+                    raise HTTPException(
+                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        detail=f"File size exceeds maximum limit of {MAX_FILE_SIZE // (1024 * 1024)}MB"
+                    )
+                await out_file.write(chunk)
+
+        # Загрузка в S3
+        try:
+            s3_client = boto3.client(
+                's3',
+                endpoint_url=os.getenv('S3_ENDPOINT_URL'),
+                aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
+                aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY')
+            )
+            
+            with open(temp_file_path, 'rb') as file_data:
+                s3_client.upload_fileobj(
+                    file_data,
+                    os.getenv('S3_BUCKET_NAME'),
+                    s3_key,
+                    ExtraArgs={'ContentType': video_file.content_type}
+                )
+        finally:
+            # Удаляем временный файл
+            if os.path.exists(temp_file_path):
+                os.remove(temp_file_path)
+
+        # Создаем запись в базе данных
         video = await crud.create_video(
             db,
             filename=video_file.filename,
             s3_key=s3_key,
             user_id=current_user.id
         )
-        
+
         return {
             "status": "success",
             "message": "Video uploaded successfully",
             "data": {"video_id": video.id}
         }
-        
-    except ClientError as e:
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)

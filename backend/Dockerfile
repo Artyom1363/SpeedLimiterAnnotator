@@ -17,8 +17,9 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Create necessary directories
+# Create uploads directory
 RUN mkdir -p /code/uploads
+RUN chmod 777 /code/uploads
 
 # Copy project
 COPY . .

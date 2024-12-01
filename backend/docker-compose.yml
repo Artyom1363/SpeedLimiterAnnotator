@@ -35,6 +35,7 @@ services:
       - BACKEND_HOST=${BACKEND_HOST}
       - BACKEND_PORT=${BACKEND_PORT}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+      - MAX_UPLOAD_SIZE=500000000
     env_file:
       - .env
     depends_on:

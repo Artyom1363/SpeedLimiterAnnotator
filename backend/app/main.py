@@ -6,13 +6,15 @@ from app.database import async_engine, Base
 from app.routers import auth, videos, annotations, inference
 from app.config import get_settings
 import logging
-import os
+import sys
 
-# Configure logging
+# Configure logging to use stdout
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    filename='logs.txt'
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
 )
 logger = logging.getLogger(__name__)
 
@@ -21,6 +23,7 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Create upload directory if it doesn't exist
+    import os
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
     
     # Create tables on startup
