@@ -19,7 +19,7 @@ class TestVideos:
         # Create test file-like object
         test_content = b"test video content"
         files = {
-            "video_file": ("test.mp4", test_content, "video/mp4")
+            "video_file": ("test_video.mp4", test_content, "video/mp4")
         }
         
         response = await client.post(
@@ -48,7 +48,7 @@ class TestVideos:
             video = result.first()
         
         assert video is not None
-        assert video.filename == "test.mp4"
+        assert video.filename == "test_video.mp4"
         assert video.user_id == test_user.id
         assert video.status == "uploaded"
         assert video.s3_key == f"videos/{video_id}/original.mp4"
@@ -62,7 +62,7 @@ class TestVideos:
         """Test CSV speed data upload"""
         # First upload a video
         files = {
-            "video_file": ("test.mp4", b"test content", "video/mp4")
+            "video_file": ("test_video.mp4", b"test content", "video/mp4")
         }
         video_response = await client.post(
             "/api/data/upload_video",
@@ -113,7 +113,7 @@ class TestVideos:
         """Test button data upload"""
         # First upload a video
         files = {
-            "video_file": ("test.mp4", b"test content", "video/mp4")
+            "video_file": ("test_video.mp4", b"test content", "video/mp4")
         }
         video_response = await client.post(
             "/api/data/upload_video",
@@ -161,7 +161,7 @@ class TestVideos:
         """Test getting next video for annotation"""
         # Create a video with all required data
         files = {
-            "video_file": ("test.mp4", b"test content", "video/mp4")
+            "video_file": ("test_video.mp4", b"test content", "video/mp4")
         }
         video_response = await client.post(
             "/api/data/upload_video",
@@ -212,7 +212,7 @@ class TestVideos:
         """Test getting video data with speed and button data"""
         # Create a video with all data
         files = {
-            "video_file": ("test.mp4", b"test content", "video/mp4")
+            "video_file": ("test_video.mp4", b"test content", "video/mp4")
         }
         video_response = await client.post(
             "/api/data/upload_video",
