@@ -38,6 +38,16 @@ class LoginData(BaseModel):
     email: EmailStr
     password: str
 
+class VideoUploadResponse(BaseModel):
+    status: str
+    message: str 
+    video_id: str
+
+class UserRegisterResponse(BaseModel):
+    status: str
+    message: str
+    user_id: str
+
 # Video schemas
 class VideoBase(BaseModel):
     filename: str

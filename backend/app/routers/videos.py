@@ -1,4 +1,4 @@
-# Path: backend/app/routers/videos.py
+# Path: app/routers/videos.py
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
@@ -12,96 +12,95 @@ import os
 import boto3
 from botocore.exceptions import ClientError
 
+# Create uploads directory
+UPLOAD_DIR = "/code/uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
 router = APIRouter(
     prefix="/api/data",
     tags=["videos"]
 )
 
-# Configure S3 client
-s3_client = boto3.client(
-    's3',
-    endpoint_url=os.getenv('S3_ENDPOINT_URL'),
-    aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
-    aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY')
-)
-BUCKET_NAME = os.getenv('S3_BUCKET_NAME')
-
 MAX_FILE_SIZE = 500 * 1024 * 1024  # 500 MB
 
-@router.post("/upload_video", response_model=schemas.DataResponse)
+def get_s3_client():
+    """Get configured S3 client"""
+    return boto3.client(
+        's3',
+        endpoint_url=os.getenv('S3_ENDPOINT_URL', 'https://storage.yandexcloud.net'),
+        aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
+        aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
+        region_name="ru-central1"
+    ), os.getenv('S3_BUCKET_NAME', 'test-bucket')
+
+@router.post("/upload_video", response_model=schemas.VideoUploadResponse, status_code=201)
 async def upload_video(
     video_file: UploadFile = File(...),
     current_user: models.User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    s3_info: tuple = Depends(get_s3_client)
 ):
     try:
-        # Проверка типа файла
+        # Логируем входные данные
+        print(f"Starting upload for file: {video_file.filename}")
+        print(f"Content type: {video_file.content_type}")
+        print(f"User ID: {current_user.id}")
+        
         if not video_file.content_type.startswith('video/'):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="File must be a video"
+                detail="Invalid file type"
             )
 
-        # Генерация S3 ключа
         s3_key = f"videos/{current_user.id}/{video_file.filename}"
+        print(f"Generated S3 key: {s3_key}")
         
-        # Создание временного файла для проверки размера и загрузки в S3
-        temp_file_path = f"/code/uploads/{video_file.filename}"
-        file_size = 0
-        
-        async with aiofiles.open(temp_file_path, 'wb') as out_file:
-            while True:
-                chunk = await video_file.read(1024 * 1024)  # читаем по 1MB
-                if not chunk:
-                    break
-                file_size += len(chunk)
-                if file_size > MAX_FILE_SIZE:
-                    # Удаляем временный файл
-                    os.remove(temp_file_path)
-                    raise HTTPException(
-                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                        detail=f"File size exceeds maximum limit of {MAX_FILE_SIZE // (1024 * 1024)}MB"
-                    )
-                await out_file.write(chunk)
-
-        # Загрузка в S3
         try:
-            s3_client = boto3.client(
-                's3',
-                endpoint_url=os.getenv('S3_ENDPOINT_URL'),
-                aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
-                aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY')
+            # Создаем запись в БД
+            video = await crud.create_video(
+                db,
+                filename=video_file.filename,
+                s3_key=s3_key,
+                user_id=current_user.id
             )
-            
+            print(f"Created DB record with ID: {video.id}")
+
+            # Пытаемся загрузить в S3
+            s3_client, bucket_name = s3_info
+            print(f"Got S3 client and bucket: {bucket_name}")
+
+            temp_file_path = f"{UPLOAD_DIR}/{video_file.filename}"
+            print(f"Temp file path: {temp_file_path}")
+
+            async with aiofiles.open(temp_file_path, 'wb') as out_file:
+                content = await video_file.read()
+                await out_file.write(content)
+            print("File saved temporarily")
+
             with open(temp_file_path, 'rb') as file_data:
+                print("Starting S3 upload...")
                 s3_client.upload_fileobj(
                     file_data,
-                    os.getenv('S3_BUCKET_NAME'),
+                    bucket_name,
                     s3_key,
                     ExtraArgs={'ContentType': video_file.content_type}
                 )
+                print("S3 upload complete")
+
         finally:
-            # Удаляем временный файл
             if os.path.exists(temp_file_path):
                 os.remove(temp_file_path)
-
-        # Создаем запись в базе данных
-        video = await crud.create_video(
-            db,
-            filename=video_file.filename,
-            s3_key=s3_key,
-            user_id=current_user.id
-        )
+                print("Temp file removed")
 
         return {
             "status": "success",
             "message": "Video uploaded successfully",
-            "data": {"video_id": video.id}
+            "video_id": video.id
         }
 
-    except HTTPException as he:
-        raise he
     except Exception as e:
+        print(f"Error during video upload: {str(e)}")
+        print(f"Error type: {type(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
@@ -124,7 +123,6 @@ async def upload_csv(
         )
     
     try:
-        # Read and parse CSV
         content = await csv_file.read()
         csv_data = csv.DictReader(io.StringIO(content.decode()))
         speed_data = []
@@ -139,7 +137,6 @@ async def upload_csv(
                 'accuracy': float(row.get('accuracy', 0))
             })
         
-        # Store speed data
         await crud.create_speed_data_bulk(db, video_id, speed_data)
         
         return {
@@ -174,11 +171,10 @@ async def upload_button_data(
                 raise ValueError(f"Invalid button state at line {i+1}")
             
             button_data.append({
-                'timestamp': float(i),  # Using line number as timestamp
+                'timestamp': float(i),
                 'state': state == '1'
             })
         
-        # Store button data
         await crud.create_button_data_bulk(db, video_id, button_data)
         
         return {

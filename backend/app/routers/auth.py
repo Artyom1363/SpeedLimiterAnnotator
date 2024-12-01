@@ -1,9 +1,8 @@
-# Path: backend/app/routers/auth.py
+# Path: app/routers/auth.py
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import timedelta
-from .. import crud, schemas, models
+from .. import crud, schemas
 from ..database import get_db
 from ..dependencies import (
     create_access_token,
@@ -20,7 +19,7 @@ router = APIRouter(
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-@router.post("/register", response_model=schemas.StandardResponse)
+@router.post("/register", response_model=schemas.UserRegisterResponse, status_code=201)
 async def register_user(
     user_data: schemas.UserCreate,
     db: AsyncSession = Depends(get_db)
@@ -37,17 +36,21 @@ async def register_user(
     hashed_password = pwd_context.hash(user_data.password)
     
     # Create user
-    await crud.create_user(db, user_data, hashed_password)
+    user = await crud.create_user(db, user_data, hashed_password)
     
-    return {"status": "success", "message": "User registered successfully"}
+    return {
+        "status": "success",
+        "message": "User registered successfully",
+        "user_id": user.id
+    }
 
 @router.post("/login", response_model=schemas.Token)
 async def login(
-    form_data: OAuth2PasswordRequestForm = Depends(),
+    credentials: schemas.LoginData,
     db: AsyncSession = Depends(get_db)
 ):
-    user = await crud.get_user_by_email(db, form_data.username)  # username field contains email
-    if not user or not pwd_context.verify(form_data.password, user.hashed_password):
+    user = await crud.get_user_by_email(db, credentials.email)
+    if not user or not pwd_context.verify(credentials.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",

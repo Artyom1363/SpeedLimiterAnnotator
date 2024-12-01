@@ -103,12 +103,22 @@ def s3():
     with mock_s3():
         s3_client = boto3.client(
             's3',
-            region_name=TEST_REGION,
-            aws_access_key_id='testing',
-            aws_secret_access_key='testing',
+            region_name="us-east-1",
+            aws_access_key_id="test",
+            aws_secret_access_key="test"
         )
-        s3_client.create_bucket(Bucket=TEST_BUCKET)
+        # Создаем бакет без указания локации
+        s3_client.create_bucket(Bucket="test-bucket")
         yield s3_client
+
+@pytest.fixture(autouse=True)
+def override_s3(monkeypatch, s3):
+    """Override S3 client in app code"""
+    def mock_get_s3_client():
+        return s3, "test-bucket"
+    
+    # Используем monkeypatch для подмены функции
+    monkeypatch.setattr("app.routers.videos.get_s3_client", mock_get_s3_client)
 
 @pytest.fixture(scope="function")
 async def auth_headers(test_user) -> dict:

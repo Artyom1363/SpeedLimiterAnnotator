@@ -19,6 +19,12 @@ class User(Base):
     locked_videos = relationship("Video", foreign_keys="[Video.locked_by]", back_populates="locked_by_user")
     annotations = relationship("Annotation", back_populates="user")
 
+    def get_token(self) -> str:
+        """Generate JWT token for this user"""
+        from app.dependencies import create_access_token
+        return create_access_token({"sub": self.id})
+
+
 class Video(Base):
     __tablename__ = "videos"
 
