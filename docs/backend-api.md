@@ -89,21 +89,7 @@
     }
     ```
 
-#### 2.4 **Add Timestamps for Button Data**  
-- **POST /api/data/add_button_timestamp**  
-  - **Description**: Add timestamp information to the button data file.  
-  - **Parameters**:  
-    - `video_id` (string): The video ID to associate with the timestamped button data.  
-    - `button_data_with_timestamps` (array): Array of button press data with associated timestamps. Each entry contains `timestamp` (int) and `button_state` (int).  
-  - **Response**:  
-    ```json
-    {
-      "status": "success",
-      "message": "Button data with timestamps added successfully"
-    }
-    ```
-
-#### 2.5 **Add Timestamps for Video Data**  
+#### 2.4 **Add Timestamps for Video Data**  
 - **POST /api/data/add_video_timestamp**  
   - **Description**: Add or adjust timestamps for video data to synchronize with other data (such as button data or geolocation).  
   - **Parameters**:  
