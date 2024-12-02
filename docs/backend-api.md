@@ -108,7 +108,7 @@
 ### **3. Annotation and Synchronization Management (Annotation API)**
 
 #### 3.1 **Get the First Available Unannotated Video**  
-- **GET /api/videos/next_unannotated**  
+- **GET /api/data/next_unannotated**  
   - **Description**: Retrieve the first unannotated and unblocked video.  
   - **Response**:  
     ```json

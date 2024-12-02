@@ -31,7 +31,7 @@ def get_s3_client():
         aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
         aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
         region_name="ru-central1"
-    ), os.getenv('S3_BUCKET_NAME', 'test-bucket')
+    ), os.getenv('S3_BUCKET_NAME', os.getenv('S3_BUCKET_NAME'))
 
 @router.post("/upload_video", response_model=schemas.VideoUploadResponse, status_code=201)
 async def upload_video(

@@ -2,6 +2,7 @@
 import os
 import pytest
 from httpx import AsyncClient
+from app.routers.videos import get_s3_client
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.ext.asyncio import async_sessionmaker
 import boto3
@@ -19,10 +20,6 @@ from .test_data import get_test_button_data_path, get_test_speed_data_path
 
 # Test database URL
 TEST_DATABASE_URL = "postgresql+asyncpg://test:test@test_db:5432/test_db"
-
-# Settings for test S3
-TEST_BUCKET = "test-bucket"
-TEST_REGION = "us-east-1"
 
 # Password hasher for tests
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -53,6 +50,34 @@ async def test_engine():
     await engine.dispose()
 
 @pytest.fixture(scope="function")
+async def test_s3_client():
+    return boto3.client(
+        's3',
+        endpoint_url=os.getenv('S3_ENDPOINT_URL'),
+        aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
+        aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
+        region_name="ru-central1"
+    ), os.getenv('S3_TEST_BUCKET')
+
+@pytest.fixture(scope="function")
+async def client(test_session, test_s3_client) -> AsyncGenerator[AsyncClient, None]:
+    """Create a test client."""
+    async def override_get_db():
+        yield test_session
+        
+    async def override_get_s3_client():
+        return test_s3_client
+
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_s3_client] = override_get_s3_client
+    
+    async with AsyncClient(app=app, base_url="http://test") as ac:
+        yield ac
+    
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture(scope="function")
 async def test_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
     """Create a test database session."""
     async_session = async_sessionmaker(
@@ -63,19 +88,6 @@ async def test_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
     
     async with async_session() as session:
         yield session
-
-@pytest.fixture(scope="function")
-async def client(test_session) -> AsyncGenerator[AsyncClient, None]:
-    """Create a test client."""
-    async def override_get_db():
-        yield test_session
-
-    app.dependency_overrides[get_db] = override_get_db
-    
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        yield ac
-    
-    app.dependency_overrides.clear()
 
 @pytest.fixture
 def test_password() -> str:
@@ -105,6 +117,7 @@ def s3():
         aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
         region_name="ru-central1"
     )
+    print(f"debug s3: {os.getenv('S3_ENDPOINT_URL')=}, {os.getenv('AWS_ACCESS_KEY_ID')=}, {os.getenv('AWS_SECRET_ACCESS_KEY')=}, {os.getenv('S3_TEST_BUCKET')=}")
     return s3_client, os.getenv('S3_TEST_BUCKET')
 
 
