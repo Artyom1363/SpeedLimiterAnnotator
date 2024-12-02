@@ -106,22 +106,20 @@ async def upload_video(
             detail=str(e)
         )
 
-@router.post("/upload_csv", response_model=schemas.StandardResponse)
+@router.post("/upload_csv/{video_id}", response_model=schemas.StandardResponse)
 async def upload_csv(
-    video_id: str = Form(...),
+    video_id: str,
     csv_file: UploadFile = File(...),
     current_user: models.User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    video = await get_video_or_404(video_id, db)
-    await check_video_lock(video, current_user)
+    video = await crud.get_video(db, video_id)
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found")
     
-    if not csv_file.filename.endswith('.csv'):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File must be a CSV"
-        )
-    
+    if video.user_id != current_user.id and video.locked_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Permission denied")
+
     try:
         content = await csv_file.read()
         csv_data = csv.DictReader(io.StringIO(content.decode()))
@@ -143,35 +141,35 @@ async def upload_csv(
             "status": "success",
             "message": "CSV data uploaded successfully"
         }
-        
     except (ValueError, KeyError) as e:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=400,
             detail=f"Invalid CSV format: {str(e)}"
         )
 
-@router.post("/upload_button_data", response_model=schemas.StandardResponse)
+@router.post("/upload_button_data/{video_id}", response_model=schemas.StandardResponse) 
 async def upload_button_data(
-    video_id: str = Form(...),
+    video_id: str,
     button_data_file: UploadFile = File(...),
     current_user: models.User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    video = await get_video_or_404(video_id, db)
-    await check_video_lock(video, current_user)
-    
+    video = await crud.get_video(db, video_id)
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found")
+
+    if video.user_id != current_user.id and video.locked_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Permission denied")
+
     try:
         content = await button_data_file.read()
         lines = content.decode().splitlines()
         button_data = []
         
-        for i, line in enumerate(lines):
-            state = line.strip()
-            if state not in ['0', '1']:
-                raise ValueError(f"Invalid button state at line {i+1}")
-            
+        for line in lines:
+            timestamp, state = line.strip().split(',')
             button_data.append({
-                'timestamp': float(i),
+                'timestamp': float(timestamp),
                 'state': state == '1'
             })
         
@@ -181,22 +179,60 @@ async def upload_button_data(
             "status": "success",
             "message": "Button data uploaded successfully"
         }
-        
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/next_unannotated", response_model=schemas.Video)
+@router.get("/next_unannotated", response_model=schemas.DataResponse)
 async def get_next_unannotated(
     current_user: models.User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     video = await crud.get_next_unannotated_video(db)
     if not video:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No unannotated videos available"
-        )
-    return video
+        raise HTTPException(status_code=404, detail="No unannotated videos available")
+
+    return {
+        "status": "success",
+        "message": "Next video retrieved",
+        "data": {
+            "video_id": video.id,
+            "filename": video.filename,
+            "upload_date": video.upload_date,
+            "status": video.status
+        }
+    }
+
+@router.get("/video/{video_id}/data", response_model=schemas.DataResponse)
+async def get_video_data(
+    video_id: str,
+    current_user: models.User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    video = await crud.get_video(db, video_id)
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found")
+
+    speed_data = await crud.get_speed_data(db, video_id)
+    button_data = await crud.get_button_data(db, video_id)
+    
+    return {
+        "status": "success",
+        "message": "Video data retrieved",
+        "data": {
+            "video_id": video.id,
+            "speed_data": [
+                {
+                    "timestamp": data.timestamp,
+                    "speed": data.speed,
+                    "latitude": data.latitude,
+                    "longitude": data.longitude
+                } for data in speed_data
+            ],
+            "button_data": [
+                {
+                    "timestamp": data.timestamp,
+                    "state": data.state
+                } for data in button_data
+            ]
+        }
+    }

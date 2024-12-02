@@ -83,13 +83,12 @@ def test_password() -> str:
     return "testpassword123"
 
 @pytest.fixture(scope="function")
-async def test_user(test_session, test_password) -> User:
-    """Create a test user."""
+async def test_user(test_session) -> User:
     user = User(
         id=str(uuid.uuid4()),
         email="test@example.com",
         username="testuser",
-        hashed_password=pwd_context.hash(test_password),
+        hashed_password=pwd_context.hash("password123"),
         created_at=datetime.utcnow(),
         is_active=True
     )
