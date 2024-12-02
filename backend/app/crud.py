@@ -185,3 +185,14 @@ async def get_speed_data(
         .order_by(models.SpeedData.timestamp)
     )
     return result.scalars().all()
+
+async def get_button_data(
+    db: AsyncSession,
+    video_id: str
+) -> List[models.ButtonData]:
+    result = await db.execute(
+        select(models.ButtonData)
+        .filter(models.ButtonData.video_id == video_id)
+        .order_by(models.ButtonData.timestamp)
+    )
+    return result.scalars().all()
