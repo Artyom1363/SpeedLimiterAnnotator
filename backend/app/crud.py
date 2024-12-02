@@ -52,8 +52,10 @@ async def get_video(db: AsyncSession, video_id: str) -> Optional[models.Video]:
     )
     return result.scalar_one_or_none()
 
+# Path: backend/app/crud.py
+
+# В функции get_next_unannotated_video добавляем:
 async def get_next_unannotated_video(db: AsyncSession) -> Optional[models.Video]:
-    # Get videos that are either unannotated or have an expired lock
     result = await db.execute(
         select(models.Video)
         .filter(
@@ -67,32 +69,40 @@ async def get_next_unannotated_video(db: AsyncSession) -> Optional[models.Video]
         )
         .order_by(models.Video.upload_date)
     )
-    return result.scalar_one_or_none()
+    video = result.scalar_one_or_none()
+    if video:
+        # Update status to in_progress
+        video.status = "in_progress"
+        await db.commit()
+    return video
 
-# Speed data operations
-async def create_speed_data_bulk(
-    db: AsyncSession,
-    video_id: str,
-    speed_data: List[dict]
-) -> List[models.SpeedData]:
-    db_speed_data = [
-        models.SpeedData(video_id=video_id, **data)
-        for data in speed_data
-    ]
+# Добавляем функцию:
+async def create_speed_data_bulk(db: AsyncSession, video_id: str, speed_data: List[dict]):
+    db_speed_data = []
+    for data in speed_data:
+        db_speed_data.append(models.SpeedData(
+            video_id=video_id,
+            timestamp=data['timestamp'],
+            speed=data['speed'],
+            latitude=data['latitude'],
+            longitude=data['longitude'],
+            altitude=data['altitude'],
+            accuracy=data['accuracy']
+        ))
+    
     db.add_all(db_speed_data)
     await db.commit()
     return db_speed_data
 
-# Button data operations
-async def create_button_data_bulk(
-    db: AsyncSession,
-    video_id: str,
-    button_data: List[dict]
-) -> List[models.ButtonData]:
-    db_button_data = [
-        models.ButtonData(video_id=video_id, **data)
-        for data in button_data
-    ]
+async def create_button_data_bulk(db: AsyncSession, video_id: str, button_data: List[dict]):
+    db_button_data = []
+    for data in button_data:
+        db_button_data.append(models.ButtonData(
+            video_id=video_id,
+            timestamp=data['timestamp'],
+            state=data['state']
+        ))
+    
     db.add_all(db_button_data)
     await db.commit()
     return db_button_data

@@ -1,6 +1,7 @@
-# Path: app/routers/videos.py
+# Path: backend/app/routers/videos.py
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
 from typing import List
 from .. import crud, schemas, models
 from ..database import get_db
@@ -31,7 +32,7 @@ async def get_s3_client():
         aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
         aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
         region_name="ru-central1"
-    ), os.getenv('S3_BUCKET_NAME', 'test-bucket')
+    ), os.getenv('S3_BUCKET_NAME', os.getenv('S3_BUCKET_NAME'))
 
 @router.post("/upload_video", response_model=schemas.VideoUploadResponse, status_code=201)
 async def upload_video(
@@ -83,7 +84,7 @@ async def upload_video(
         if temp_file_path and os.path.exists(temp_file_path):
             os.remove(temp_file_path)
 
-@router.post("/upload_csv/{video_id}")
+@router.post("/upload_csv/{video_id}", response_model=schemas.StandardResponse)
 async def upload_speed_data(
     video_id: str,
     csv_file: UploadFile = File(...),
@@ -94,34 +95,34 @@ async def upload_speed_data(
     if not video:
         raise HTTPException(status_code=404, detail="Video not found")
     
-    if video.user_id != current_user.id and video.locked_by != current_user.id:
-        raise HTTPException(status_code=403, detail="Permission denied")
-
+    content = await csv_file.read()
+    csv_data = []
     try:
-        content = await csv_file.read()
-        csv_data = csv.DictReader(io.StringIO(content.decode()))
-        speed_data = []
-        
-        for row in csv_data:
-            speed_data.append({
-                'timestamp': float(row['timestamp']),
-                'speed': float(row['speed']),
-                'latitude': float(row['latitude']),
-                'longitude': float(row['longitude']),
-                'altitude': float(row.get('altitude', 0)),
-                'accuracy': float(row.get('accuracy', 0))
+        decoded_content = content.decode()
+        reader = csv.DictReader(io.StringIO(decoded_content))
+        for row in reader:
+            csv_data.append({
+                'timestamp': float(row['Elapsed time (sec)']),
+                'speed': float(row['Speed (km/h)']),
+                'latitude': float(row['Latitude']),
+                'longitude': float(row['Longitude']),
+                'altitude': float(row['Altitude (km)']),
+                'accuracy': float(row['Accuracy (km)'])
             })
-        
-        await crud.create_speed_data_bulk(db, video_id, speed_data)
-        
-        return {
-            "status": "success",
-            "message": "CSV data uploaded successfully"
-        }
-    except (ValueError, KeyError) as e:
-        raise HTTPException(status_code=400, detail=f"Invalid CSV format: {str(e)}")
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid CSV format: {str(e)}"
+        )
 
-@router.post("/upload_button_data/{video_id}")
+    await crud.create_speed_data_bulk(db, video_id, csv_data)
+    
+    return {
+        "status": "success",
+        "message": "Speed data uploaded successfully"
+    }
+
+@router.post("/upload_button_data/{video_id}", response_model=schemas.StandardResponse)
 async def upload_button_data(
     video_id: str,
     button_data_file: UploadFile = File(...),
@@ -132,31 +133,31 @@ async def upload_button_data(
     if not video:
         raise HTTPException(status_code=404, detail="Video not found")
 
-    if video.user_id != current_user.id and video.locked_by != current_user.id:
-        raise HTTPException(status_code=403, detail="Permission denied")
-
+    content = await button_data_file.read()
+    lines = content.decode().splitlines()
+    button_data = []
+    
     try:
-        content = await button_data_file.read()
-        lines = content.decode().splitlines()
-        button_data = []
-        
         for line in lines:
             timestamp, state = line.strip().split(',')
             button_data.append({
                 'timestamp': float(timestamp),
                 'state': state == '1'
             })
-        
-        await crud.create_button_data_bulk(db, video_id, button_data)
-        
-        return {
-            "status": "success",
-            "message": "Button data uploaded successfully"
-        }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid button data format: {str(e)}"
+        )
 
-@router.get("/next_unannotated")
+    await crud.create_button_data_bulk(db, video_id, button_data)
+    
+    return {
+        "status": "success",
+        "message": "Button data uploaded successfully"
+    }
+
+@router.get("/next_unannotated", response_model=schemas.DataResponse)
 async def get_next_unannotated(
     current_user: models.User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -176,14 +177,13 @@ async def get_next_unannotated(
         }
     }
 
-@router.get("/{video_id}/data")
+@router.get("/{video_id}/data", response_model=schemas.DataResponse)
 async def get_video_data(
     video_id: str,
     current_user: models.User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     video = await get_video_or_404(video_id, db)
-
     speed_data = await crud.get_speed_data(db, video_id)
     button_data = await crud.get_button_data(db, video_id)
     

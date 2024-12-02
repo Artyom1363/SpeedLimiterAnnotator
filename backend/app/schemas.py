@@ -1,7 +1,7 @@
 # Path: backend/app/schemas.py
 from pydantic import BaseModel, EmailStr, ConfigDict
 from datetime import datetime
-from typing import Optional, List, Dict, Union
+from typing import Optional, List, Dict, Union, Any
 
 # User schemas
 class UserBase(BaseModel):
@@ -38,10 +38,16 @@ class LoginData(BaseModel):
     email: EmailStr
     password: str
 
+# Обновляем:
 class VideoUploadResponse(BaseModel):
     status: str
     message: str 
-    video_id: str
+    data: Dict[str, Any]
+
+class DataResponse(BaseModel):
+    status: str
+    message: str
+    data: Dict[str, Any]
 
 class UserRegisterResponse(BaseModel):
     status: str
@@ -123,9 +129,6 @@ class InferenceResult(BaseModel):
 class StandardResponse(BaseModel):
     status: str
     message: str
-
-class DataResponse(StandardResponse):
-    data: Dict
 
 class ErrorResponse(StandardResponse):
     error_code: Optional[str] = None

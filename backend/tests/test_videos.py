@@ -66,13 +66,13 @@ class TestVideos:
             files=files,
             headers={"Authorization": f"Bearer {test_user.get_token()}"}
         )
-        video_id = video_response.json()["video_id"]
+        video_id = video_response.json()["data"]["video_id"]
 
         # Then upload speed data
         with open(get_test_speed_data_path(), 'rb') as speed_file:
             files = {"csv_file": ("speed_data.csv", speed_file, "text/csv")}
             response = await client.post(
-                f"/api/data/upload_csv/{video_id}",  # было f"/api/data/upload_csv" с video_id в params
+                f"/api/data/upload_csv/{video_id}",
                 files=files,
                 headers={"Authorization": f"Bearer {test_user.get_token()}"}
             )
@@ -116,14 +116,14 @@ class TestVideos:
             files=files,
             headers={"Authorization": f"Bearer {test_user.get_token()}"}
         )
-        video_id = video_response.json()["video_id"]
+        video_id = video_response.json()["data"]["video_id"]
 
         # Then upload button data
         with open(get_test_button_data_path(), 'rb') as button_file:
             files = {"button_data_file": ("button_data.txt", button_file, "text/plain")}
             response = await client.post(
-                f"/api/data/upload_button_data/{video_id}",  # было с video_id в params
-                files=files, 
+                f"/api/data/upload_button_data/{video_id}",
+                files=files,
                 headers={"Authorization": f"Bearer {test_user.get_token()}"}
             )
 
