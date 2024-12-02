@@ -1,9 +1,9 @@
 # Path: backend/tests/conftest.py
+import os
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.ext.asyncio import async_sessionmaker
-from moto import mock_s3
 import boto3
 from typing import AsyncGenerator
 import asyncio
@@ -98,26 +98,15 @@ async def test_user(test_session) -> User:
 
 @pytest.fixture(scope="function")
 def s3():
-    """Create a mocked S3 bucket."""
-    with mock_s3():
-        s3_client = boto3.client(
-            's3',
-            region_name="us-east-1",
-            aws_access_key_id="test",
-            aws_secret_access_key="test"
-        )
-        # Создаем бакет без указания локации
-        s3_client.create_bucket(Bucket="test-bucket")
-        yield s3_client
+    s3_client = boto3.client(
+        's3',
+        endpoint_url=os.getenv('S3_ENDPOINT_URL'),
+        aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'), 
+        aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
+        region_name="ru-central1"
+    )
+    return s3_client, os.getenv('S3_TEST_BUCKET')
 
-@pytest.fixture(autouse=True)
-def override_s3(monkeypatch, s3):
-    """Override S3 client in app code"""
-    def mock_get_s3_client():
-        return s3, "test-bucket"
-    
-    # Используем monkeypatch для подмены функции
-    monkeypatch.setattr("app.routers.videos.get_s3_client", mock_get_s3_client)
 
 @pytest.fixture(scope="function")
 async def auth_headers(test_user) -> dict:
