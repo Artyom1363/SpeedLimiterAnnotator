@@ -41,16 +41,15 @@ async def upload_video(
     db: AsyncSession = Depends(get_db),
     s3_info: tuple = Depends(get_s3_client)
 ):
+    if not video_file.content_type.startswith('video/'):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid file type"
+        )
+
     temp_file_path = None
     try:
-        if not video_file.content_type.startswith('video/'):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid file type"
-            )
-
         s3_key = f"videos/{current_user.id}/{video_file.filename}"
-        # Создаем запись в БД
         video = await crud.create_video(
             db,
             filename=video_file.filename,
@@ -58,7 +57,6 @@ async def upload_video(
             user_id=current_user.id
         )
 
-        # Загружаем в S3
         s3_client, bucket_name = s3_info
         temp_file_path = f"{UPLOAD_DIR}/{video_file.filename}"
 
@@ -85,7 +83,7 @@ async def upload_video(
             os.remove(temp_file_path)
 
 @router.post("/upload_csv/{video_id}", response_model=schemas.StandardResponse)
-async def upload_speed_data(
+async def upload_csv_data(
     video_id: str,
     csv_file: UploadFile = File(...),
     current_user: models.User = Depends(get_current_user),
@@ -119,7 +117,7 @@ async def upload_speed_data(
     
     return {
         "status": "success",
-        "message": "Speed data uploaded successfully"
+        "message": "CSV data uploaded successfully"
     }
 
 @router.post("/upload_button_data/{video_id}", response_model=schemas.StandardResponse)
@@ -134,10 +132,9 @@ async def upload_button_data(
         raise HTTPException(status_code=404, detail="Video not found")
 
     content = await button_data_file.read()
-    lines = content.decode().splitlines()
     button_data = []
-    
     try:
+        lines = content.decode().splitlines()
         for line in lines:
             timestamp, state = line.strip().split(',')
             button_data.append({
@@ -157,7 +154,7 @@ async def upload_button_data(
         "message": "Button data uploaded successfully"
     }
 
-@router.get("/next_unannotated", response_model=schemas.DataResponse)
+@router.get("/next_unannotated", response_model=schemas.NextVideoResponse)
 async def get_next_unannotated(
     current_user: models.User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -167,14 +164,12 @@ async def get_next_unannotated(
         raise HTTPException(status_code=404, detail="No unannotated videos available")
 
     return {
-        "status": "success",
-        "message": "Next video retrieved",
-        "data": {
-            "video_id": video.id,
-            "filename": video.filename,
-            "upload_date": video.upload_date,
-            "status": video.status
-        }
+        "video_id": video.id,
+        "title": video.filename,
+        "upload_date": video.upload_date,
+        "status": video.status,
+        "locked_by": video.locked_by,
+        "lock_time": video.lock_time
     }
 
 @router.get("/{video_id}/data", response_model=schemas.DataResponse)
@@ -189,7 +184,7 @@ async def get_video_data(
     
     return {
         "status": "success",
-        "message": "Video data retrieved",
+        "message": "Video data retrieved successfully",
         "data": {
             "video_id": video.id,
             "speed_data": [
@@ -207,4 +202,19 @@ async def get_video_data(
                 } for data in button_data
             ]
         }
+    }
+
+@router.post("/add_video_timestamp/{video_id}", response_model=schemas.StandardResponse)
+async def add_video_timestamp(
+    video_id: str,
+    video_data_with_timestamps: List[dict], 
+    current_user: models.User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    video = await get_video_or_404(video_id, db)
+    await crud.add_video_timestamps(db, video_id, video_data_with_timestamps)
+    
+    return {
+        "status": "success",
+        "message": "Video timestamps added/adjusted successfully"
     }
