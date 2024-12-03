@@ -11,22 +11,24 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
 
-class UserUpdate(UserBase):
-    pass
-
 class UserInDB(UserBase):
     id: str
     created_at: datetime
     is_active: bool
-    role: str
 
     model_config = ConfigDict(from_attributes=True)
 
 class User(UserInDB):
     pass
 
+class UserRegisterResponse(BaseModel):
+    status: str
+    message: str
+    user_id: str
+
 # Auth schemas
 class Token(BaseModel):
+    status: str = "success"
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
@@ -38,66 +40,32 @@ class LoginData(BaseModel):
     email: EmailStr
     password: str
 
-# Обновляем:
-class VideoUploadResponse(BaseModel):
+# Response schemas
+class StandardResponse(BaseModel):
     status: str
-    message: str 
-    data: Dict[str, Any]
+    message: str
 
 class DataResponse(BaseModel):
     status: str
     message: str
     data: Dict[str, Any]
 
-class UserRegisterResponse(BaseModel):
-    status: str
-    message: str
-    user_id: str
+class VideoUploadResponse(StandardResponse):
+    video_id: str
 
 # Video schemas
 class VideoBase(BaseModel):
-    filename: str
+    title: str
 
 class VideoCreate(VideoBase):
     pass
 
 class Video(VideoBase):
-    id: str
-    s3_key: str
+    video_id: str
     upload_date: datetime
     status: str
-    user_id: str
     locked_by: Optional[str]
     lock_time: Optional[datetime]
-    timestamp_offset: float
-
-    model_config = ConfigDict(from_attributes=True)
-
-# Speed data schemas
-class SpeedDataCreate(BaseModel):
-    timestamp: float
-    speed: float
-    latitude: float
-    longitude: float
-    altitude: float
-    accuracy: float
-
-class SpeedData(SpeedDataCreate):
-    id: str
-    video_id: str
-    timestamp_offset: float
-
-    model_config = ConfigDict(from_attributes=True)
-
-# Button data schemas
-class ButtonDataCreate(BaseModel):
-    timestamp: float
-    state: bool
-
-class ButtonData(ButtonDataCreate):
-    id: str
-    video_id: str
-    timestamp_offset: float
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -106,16 +74,42 @@ class AnnotationCreate(BaseModel):
     timestamp: float
     speed: float
     button_state: bool
-    error_detected: bool = False
-    metadata: Dict = {}
 
 class Annotation(AnnotationCreate):
-    id: str
     video_id: str
     user_id: str
     created_at: datetime
-
+    
     model_config = ConfigDict(from_attributes=True)
+
+class AnnotationResponse(BaseModel):
+    status: str
+    video_id: str
+    annotations: List[AnnotationCreate]
+
+# Next unannotated video response
+class NextVideoResponse(BaseModel):
+    video_id: str
+    title: str 
+    upload_date: datetime
+    status: str
+    locked_by: Optional[str]
+    lock_time: Optional[datetime]
+
+# Lock response
+class LockResponse(BaseModel):
+    status: str
+    video_id: str
+    user_id: str
+    locked_by: str
+    lock_time: datetime
+
+class UnlockResponse(BaseModel):
+    status: str
+    video_id: str
+
+class TimestampShiftResponse(StandardResponse):
+    pass
 
 # Inference schemas
 class InferenceResult(BaseModel):
@@ -123,13 +117,17 @@ class InferenceResult(BaseModel):
     predicted_speed: float
     confidence: float
 
-    model_config = ConfigDict(from_attributes=True)
-
-# Response schemas
-class StandardResponse(BaseModel):
+class InferenceResponse(BaseModel):
     status: str
-    message: str
+    video_id: str
+    predictions: List[InferenceResult]
 
-class ErrorResponse(StandardResponse):
-    error_code: Optional[str] = None
-    details: Optional[Dict] = None
+# Geolocation schemas
+class LocationPoint(BaseModel):
+    timestamp: float
+    latitude: float
+    longitude: float
+
+class GeolocationResponse(BaseModel):
+    video_id: str
+    locations: List[LocationPoint]
