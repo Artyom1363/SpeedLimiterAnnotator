@@ -63,29 +63,29 @@ async def get_next_unannotated_video(db: AsyncSession) -> Optional[models.Video]
     )
     return result.scalar_one_or_none()
 
-# Speed data operations
+
 async def create_speed_data_bulk(db: AsyncSession, video_id: str, speed_data: List[dict]) -> List[models.SpeedData]:
-    db_speed_data = []
-    for data in speed_data:
-        try:
+    try:
+        db_speed_data = []
+        for data in speed_data:
             db_speed_data.append(models.SpeedData(
                 video_id=video_id,
-                timestamp=float(data['timestamp']),
-                speed=float(data['speed']),
-                latitude=float(data['latitude']),
-                longitude=float(data['longitude']),
-                altitude=float(data.get('altitude', 0)),
-                accuracy=float(data.get('accuracy', 0))
+                timestamp=float(data['Elapsed time (sec)']),  # Изменение здесь
+                speed=float(data['Speed (km/h)']),           # И здесь
+                latitude=float(data['Latitude']),
+                longitude=float(data['Longitude']),
+                altitude=float(data['Altitude (km)']),
+                accuracy=float(data['Accuracy (km)'])
             ))
-        except (ValueError, KeyError) as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid speed data format: {str(e)}"
-            )
-    
-    db.add_all(db_speed_data)
-    await db.commit()
-    return db_speed_data
+        
+        db.add_all(db_speed_data)
+        await db.commit()
+        return db_speed_data
+    except (ValueError, KeyError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid CSV format: {str(e)}"
+        )
 
 # Button data operations
 async def create_button_data_bulk(db: AsyncSession, video_id: str, button_data: List[dict]) -> List[models.ButtonData]:

@@ -272,7 +272,7 @@ class TestVideos:
 
         response = await client.post(
             f"/api/data/upload_csv/{video_id}",
-            files={"csv_file": ("invalid.csv", b"invalid,csv,format", "text/csv")},
+            files={"csv_file": ("invalid.csv", b"header1,header2\ndata1,data2", "text/csv")},
             headers={"Authorization": f"Bearer {test_user.get_token()}"}
         )
         assert response.status_code == 400

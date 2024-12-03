@@ -99,14 +99,12 @@ async def upload_csv_data(
         decoded_content = content.decode()
         reader = csv.DictReader(io.StringIO(decoded_content))
         for row in reader:
-            csv_data.append({
-                'timestamp': float(row['Elapsed time (sec)']),
-                'speed': float(row['Speed (km/h)']),
-                'latitude': float(row['Latitude']),
-                'longitude': float(row['Longitude']),
-                'altitude': float(row['Altitude (km)']),
-                'accuracy': float(row['Accuracy (km)'])
-            })
+            if not all(key in row for key in ['Elapsed time (sec)', 'Speed (km/h)', 'Latitude', 'Longitude', 'Altitude (km)', 'Accuracy (km)']):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid CSV format: missing required columns"
+                )
+            csv_data.append(row)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
