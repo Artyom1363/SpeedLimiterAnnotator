@@ -109,6 +109,20 @@ async def test_user(test_session) -> User:
     return user
 
 @pytest.fixture(scope="function")
+async def test_user2(test_session) -> User:
+    user = User(
+        id=str(uuid.uuid4()),
+        email="test2@example.com", 
+        username="testuser2",
+        hashed_password=pwd_context.hash("password123"),
+        created_at=datetime.utcnow(),
+        is_active=True
+    )
+    test_session.add(user)
+    await test_session.commit()
+    return user
+
+@pytest.fixture(scope="function")
 def s3():
     s3_client = boto3.client(
         's3',
