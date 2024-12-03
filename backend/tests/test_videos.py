@@ -5,6 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from datetime import datetime
 from typing import List
+from sqlalchemy import select
+from app import models
 from .test_data import get_test_video_path, get_test_speed_data_path, get_test_button_data_path
 
 pytestmark = pytest.mark.asyncio
@@ -58,7 +60,44 @@ class TestVideos:
         test_user: "User",
         test_session: "AsyncSession"
     ):
+        """Test CSV speed data upload"""
         # First upload a video
+        video_response = await client.post(
+            "/api/data/upload_video",
+            files={"video_file": ("test_video.mp4", b"test content", "video/mp4")},
+            headers={"Authorization": f"Bearer {test_user.get_token()}"}
+        )
+        assert video_response.status_code == 201
+        video_id = video_response.json()["video_id"]
+
+        # Then upload speed data
+        with open(get_test_speed_data_path(), 'rb') as speed_file:
+            response = await client.post(
+                f"/api/data/upload_csv/{video_id}",
+                files={"csv_file": ("speed_data.csv", speed_file, "text/csv")},
+                headers={"Authorization": f"Bearer {test_user.get_token()}"}
+            )
+        
+        assert response.status_code == 200
+        assert response.json()["status"] == "success"
+
+        # Verify data was saved
+        result = await test_session.execute(
+            select(models.SpeedData)
+            .filter(models.SpeedData.video_id == video_id)
+            .order_by(models.SpeedData.timestamp)
+        )
+        speed_records = result.scalars().all()
+        assert len(speed_records) > 0
+
+    async def test_get_video_data(
+        self,
+        client: AsyncClient,
+        test_user: "User",
+        test_session: "AsyncSession"
+    ):
+        """Test getting video data with speed and button data"""
+        # Create video with all required data
         video_response = await client.post(
             "/api/data/upload_video",
             files={"video_file": ("test_video.mp4", b"test content", "video/mp4")},
@@ -66,32 +105,45 @@ class TestVideos:
         )
         video_id = video_response.json()["video_id"]
 
-        # Then upload CSV data
+        # Upload CSV data
         with open(get_test_speed_data_path(), 'rb') as speed_file:
-            response = await client.post(
+            csv_response = await client.post(
                 f"/api/data/upload_csv/{video_id}",
                 files={"csv_file": ("speed_data.csv", speed_file, "text/csv")},
                 headers={"Authorization": f"Bearer {test_user.get_token()}"}
             )
+        assert csv_response.status_code == 200
+
+        # Upload button data
+        with open(get_test_button_data_path(), 'rb') as button_file:
+            button_response = await client.post(
+                f"/api/data/upload_button_data/{video_id}",
+                files={"button_data_file": ("button_data.txt", button_file, "text/plain")},
+                headers={"Authorization": f"Bearer {test_user.get_token()}"}
+            )
+        assert button_response.status_code == 200
+
+        # Get video data
+        response = await client.get(
+            f"/api/data/{video_id}/data",
+            headers={"Authorization": f"Bearer {test_user.get_token()}"}
+        )
 
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "success"
-        assert data["message"] == "CSV data uploaded successfully"
+        assert "data" in data
+        assert "speed_data" in data["data"]
+        assert "button_data" in data["data"]
+        assert len(data["data"]["speed_data"]) > 0
+        assert len(data["data"]["button_data"]) > 0
 
-        # Verify data in database
-        # async with test_session.begin():
-        result = await test_session.execute(
-            text("""
-            SELECT timestamp, speed, latitude, longitude
-            FROM speed_data
-            WHERE video_id = :video_id
-            ORDER BY timestamp
-            """),
-            {"video_id": video_id}
-        )
-        speed_records = result.fetchall()
-        assert len(speed_records) > 0
+        # Verify speed data format
+        first_speed = data["data"]["speed_data"][0]
+        assert "timestamp" in first_speed
+        assert "speed" in first_speed
+        assert "latitude" in first_speed
+        assert "longitude" in first_speed
 
     async def test_upload_button_data(
         self,
@@ -162,51 +214,6 @@ class TestVideos:
         assert "upload_date" in data
         assert data["locked_by"] is None
         assert data["lock_time"] is None
-
-    async def test_get_video_data(
-        self,
-        client: AsyncClient,
-        test_user: "User",
-        test_session: "AsyncSession"
-    ):
-        # Create video with all required data
-        video_response = await client.post(
-            "/api/data/upload_video",
-            files={"video_file": ("test_video.mp4", b"test content", "video/mp4")},
-            headers={"Authorization": f"Bearer {test_user.get_token()}"}
-        )
-        video_id = video_response.json()["video_id"]
-
-        # Upload CSV data
-        with open(get_test_speed_data_path(), 'rb') as speed_file:
-            await client.post(
-                f"/api/data/upload_csv/{video_id}",
-                files={"csv_file": ("speed_data.csv", speed_file, "text/csv")},
-                headers={"Authorization": f"Bearer {test_user.get_token()}"}
-            )
-
-        # Upload button data
-        with open(get_test_button_data_path(), 'rb') as button_file:
-            await client.post(
-                f"/api/data/upload_button_data/{video_id}",
-                files={"button_data_file": ("button_data.txt", button_file, "text/plain")},
-                headers={"Authorization": f"Bearer {test_user.get_token()}"}
-            )
-
-        # Get video data
-        response = await client.get(
-            f"/api/data/{video_id}/data",
-            headers={"Authorization": f"Bearer {test_user.get_token()}"}
-        )
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "success"
-        assert "data" in data
-        assert "speed_data" in data["data"]
-        assert "button_data" in data["data"]
-        assert len(data["data"]["speed_data"]) > 0
-        assert len(data["data"]["button_data"]) > 0
 
     async def test_add_video_timestamp(
         self,

@@ -65,13 +65,15 @@ async def get_next_unannotated_video(db: AsyncSession) -> Optional[models.Video]
 
 
 async def create_speed_data_bulk(db: AsyncSession, video_id: str, speed_data: List[dict]) -> List[models.SpeedData]:
+    """Parse and create speed data records from CSV"""
+    db_speed_data = []
     try:
-        db_speed_data = []
         for data in speed_data:
+            # Преобразование заголовков из CSV
             db_speed_data.append(models.SpeedData(
                 video_id=video_id,
-                timestamp=float(data['Elapsed time (sec)']),  # Изменение здесь
-                speed=float(data['Speed (km/h)']),           # И здесь
+                timestamp=float(data['Elapsed time (sec)']), 
+                speed=float(data['Speed (km/h)']),
                 latitude=float(data['Latitude']),
                 longitude=float(data['Longitude']),
                 altitude=float(data['Altitude (km)']),
@@ -81,10 +83,11 @@ async def create_speed_data_bulk(db: AsyncSession, video_id: str, speed_data: Li
         db.add_all(db_speed_data)
         await db.commit()
         return db_speed_data
-    except (ValueError, KeyError) as e:
+    except Exception as e:
+        await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid CSV format: {str(e)}"
+            detail=f"Error processing speed data: {str(e)}"
         )
 
 # Button data operations

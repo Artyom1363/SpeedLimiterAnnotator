@@ -89,34 +89,51 @@ async def upload_csv_data(
     current_user: models.User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    video = await crud.get_video(db, video_id)
-    if not video:
-        raise HTTPException(status_code=404, detail="Video not found")
+    """Upload and process speed data CSV"""
+    video = await get_video_or_404(video_id, db)
     
     content = await csv_file.read()
-    csv_data = []
     try:
-        decoded_content = content.decode()
-        reader = csv.DictReader(io.StringIO(decoded_content))
-        for row in reader:
-            if not all(key in row for key in ['Elapsed time (sec)', 'Speed (km/h)', 'Latitude', 'Longitude', 'Altitude (km)', 'Accuracy (km)']):
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Invalid CSV format: missing required columns"
-                )
-            csv_data.append(row)
-    except Exception as e:
+        # Декодируем содержимое CSV
+        decoded_content = content.decode('utf-8')
+        csv_reader = csv.DictReader(io.StringIO(decoded_content), skipinitialspace=True)
+        
+        # Проверяем наличие необходимых колонок
+        required_columns = {
+            'Elapsed time (sec)',
+            'Speed (km/h)',
+            'Latitude',
+            'Longitude',
+            'Altitude (km)',
+            'Accuracy (km)'
+        }
+        
+        first_row = next(csv_reader, None)
+        if not first_row or not required_columns.issubset(set(first_row.keys())):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid CSV format. Required columns: {required_columns}"
+            )
+
+        # Собираем все строки включая первую
+        rows = [first_row] + list(csv_reader)
+        await crud.create_speed_data_bulk(db, video_id, rows)
+        
+        return {
+            "status": "success",
+            "message": "CSV data uploaded successfully"
+        }
+        
+    except (UnicodeDecodeError, csv.Error) as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid CSV format: {str(e)}"
         )
-
-    await crud.create_speed_data_bulk(db, video_id, csv_data)
-    
-    return {
-        "status": "success",
-        "message": "CSV data uploaded successfully"
-    }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
 
 @router.post("/upload_button_data/{video_id}", response_model=schemas.StandardResponse)
 async def upload_button_data(

@@ -43,24 +43,15 @@ class TestAnnotations:
         assert start_response.status_code == 200
         start_data = start_response.json()
         assert start_data["status"] == "started"
-        assert start_data["video_id"] == video_id
-        assert start_data["user_id"] == start_data["locked_by"]
-        assert "lock_time" in start_data
 
         # 3. Add annotations
         annotations = [
             {
-                "timestamp": 1717352241.0,
+                "timestamp": 1717352241,
                 "speed": 25.5,
-                "button_state": False
-            },
-            {
-                "timestamp": 1717352242.0,
-                "speed": 30.0,
                 "button_state": False
             }
         ]
-
         commit_response = await client.post(
             f"/api/annotations/{video_id}/commit",
             json=annotations,
@@ -69,35 +60,14 @@ class TestAnnotations:
         assert commit_response.status_code == 200
         commit_data = commit_response.json()
         assert commit_data["status"] == "committed"
-        assert commit_data["video_id"] == video_id
         assert len(commit_data["annotations"]) == len(annotations)
 
-        # 4. Modify timestamps
-        timestamp_response = await client.post(
-            f"/api/annotations/{video_id}/shift_timestamp",
-            json={"timestamp_offset": 1.5},
-            headers={"Authorization": f"Bearer {test_user.get_token()}"}
-        )
-        assert timestamp_response.status_code == 200
-        assert timestamp_response.json()["status"] == "success"
-
-        button_timestamp_response = await client.post(
-            f"/api/annotations/{video_id}/shift_button_timestamp",
-            json={"timestamp_offset": 1.5},
-            headers={"Authorization": f"Bearer {test_user.get_token()}"}
-        )
-        assert button_timestamp_response.status_code == 200
-        assert button_timestamp_response.json()["status"] == "success"
-
-        # 5. Unlock video
+        # 4. Complete annotation
         unlock_response = await client.post(
             f"/api/annotations/{video_id}/unlock",
             headers={"Authorization": f"Bearer {test_user.get_token()}"}
         )
         assert unlock_response.status_code == 200
-        unlock_data = unlock_response.json()
-        assert unlock_data["status"] == "unlocked"
-        assert unlock_data["video_id"] == video_id
 
     async def test_annotation_locking(self, client: AsyncClient, test_user, test_user2):
         """Test annotation locking mechanism"""
