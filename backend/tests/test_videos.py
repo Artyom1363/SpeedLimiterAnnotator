@@ -36,21 +36,21 @@ class TestVideos:
         assert data["message"] == "Video uploaded successfully"
 
         # Verify database entry
-        async with test_session.begin():
-            result = await test_session.execute(
-                text("""
-                SELECT id, filename, s3_key, user_id, status
-                FROM videos
-                WHERE id = :video_id
-                """),
-                {"video_id": data["video_id"]}
-            )
-            video = result.first()
-            
-            assert video is not None
-            assert video.filename == "test_video.mp4"
-            assert video.user_id == test_user.id
-            assert video.status == "unannotated"
+        # async with test_session.begin():
+        result = await test_session.execute(
+            text("""
+            SELECT id, filename, s3_key, user_id, status
+            FROM videos
+            WHERE id = :video_id
+            """),
+            {"video_id": data["video_id"]}
+        )
+        video = result.first()
+        
+        assert video is not None
+        assert video.filename == "test_video.mp4"
+        assert video.user_id == test_user.id
+        assert video.status == "unannotated"
 
     async def test_upload_csv_data(
         self,
@@ -80,18 +80,18 @@ class TestVideos:
         assert data["message"] == "CSV data uploaded successfully"
 
         # Verify data in database
-        async with test_session.begin():
-            result = await test_session.execute(
-                text("""
-                SELECT timestamp, speed, latitude, longitude
-                FROM speed_data
-                WHERE video_id = :video_id
-                ORDER BY timestamp
-                """),
-                {"video_id": video_id}
-            )
-            speed_records = result.fetchall()
-            assert len(speed_records) > 0
+        # async with test_session.begin():
+        result = await test_session.execute(
+            text("""
+            SELECT timestamp, speed, latitude, longitude
+            FROM speed_data
+            WHERE video_id = :video_id
+            ORDER BY timestamp
+            """),
+            {"video_id": video_id}
+        )
+        speed_records = result.fetchall()
+        assert len(speed_records) > 0
 
     async def test_upload_button_data(
         self,
@@ -121,18 +121,18 @@ class TestVideos:
         assert data["message"] == "Button data uploaded successfully"
 
         # Verify in database
-        async with test_session.begin():
-            result = await test_session.execute(
-                text("""
-                SELECT timestamp, state
-                FROM button_data
-                WHERE video_id = :video_id
-                ORDER BY timestamp
-                """),
-                {"video_id": video_id}
-            )
-            button_records = result.fetchall()
-            assert len(button_records) > 0
+        # async with test_session.begin():
+        result = await test_session.execute(
+            text("""
+            SELECT timestamp, state
+            FROM button_data
+            WHERE video_id = :video_id
+            ORDER BY timestamp
+            """),
+            {"video_id": video_id}
+        )
+        button_records = result.fetchall()
+        assert len(button_records) > 0
 
     async def test_get_next_unannotated_video(
         self,
