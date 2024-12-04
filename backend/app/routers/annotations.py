@@ -12,6 +12,25 @@ router = APIRouter(
     tags=["annotations"]
 )
 
+@router.get("/next_unannotated", response_model=schemas.NextVideoResponse)
+async def get_next_unannotated(
+    current_user: models.User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get the next video that needs annotation"""
+    video = await crud.get_next_unannotated_video(db)
+    if not video:
+        raise HTTPException(status_code=404, detail="No unannotated videos available")
+
+    return {
+        "video_id": video.id,
+        "title": video.filename,
+        "upload_date": video.upload_date,
+        "status": video.status,
+        "locked_by": video.locked_by,
+        "lock_time": video.lock_time
+    }
+
 @router.post("/{video_id}/start", response_model=schemas.LockResponse)
 async def start_annotation(
     video_id: str,
