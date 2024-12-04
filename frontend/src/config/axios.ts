@@ -1,13 +1,13 @@
 import axios from 'axios';
 
 const instance = axios.create({
-    baseURL: process.env.REACT_APP_API_URL || 'http://46.8.29.217',
+    baseURL: process.env.NODE_ENV === 'development' ? 'http://46.8.29.89' : '',
     headers: {
         'Content-Type': 'application/json'
     }
 });
 
-// Add a request interceptor to add the token
+// Add request interceptor to handle auth token
 instance.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('token');

@@ -1,63 +1,51 @@
-// src/components/Login.tsx
+// src/components/SignUp.tsx
 import React, { useState } from 'react';
 import { Box, Button, TextField, Typography, Paper, Link } from '@mui/material';
-import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { loginStart, loginSuccess, loginFailure } from '../store/slices/authSlice';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
-const Login: React.FC = () => {
-  const dispatch = useDispatch();
+const SignUp: React.FC = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsLoading(true);
-    dispatch(loginStart());
 
     const formData = new FormData(event.currentTarget);
-    
+    const password = formData.get('password');
+    const confirmPassword = formData.get('confirmPassword');
+
+    // Basic validation
+    if (password !== confirmPassword) {
+      toast.error('Passwords do not match!');
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      console.log('Attempting login...'); // Debug log
-      const response = await axios.post('/api/auth/login', {
+      // Make sure API endpoint matches backend exactly
+      const response = await axios.post('/api/auth/register', {
+        username: formData.get('username'),
         email: formData.get('email'),
         password: formData.get('password')
       });
 
-      console.log('Login response:', response.data); // Debug log
+      console.log('Registration response:', response.data); // Debug log
 
       if (response.data.status === 'success') {
-        // Store the token
-        const token = response.data.access_token;
-        
-        // Update axios default headers for future requests
-        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        
-        // Update Redux state
-        dispatch(loginSuccess({
-          user: {
-            id: 'temp-id', // We might need to make another request to get user details
-            email: formData.get('email') as string,
-            username: formData.get('email') as string
-          },
-          token: token
-        }));
-
-        toast.success('Successfully logged in!');
-        navigate('/upload');
+        toast.success('Registration successful!');
+        navigate('/login');
       } else {
-        throw new Error('Login failed');
+        toast.error('Registration failed: ' + response.data.message);
       }
     } catch (error) {
-      console.error('Login error:', error); // Debug log
+      console.error('Registration error:', error); // Debug log
       if (axios.isAxiosError(error) && error.response) {
-        dispatch(loginFailure(error.response.data.message || 'Login failed'));
-        toast.error(`Login failed: ${error.response.data.message || error.message}`);
+        toast.error(`Registration failed: ${error.response.data.message || error.message}`);
       } else {
-        dispatch(loginFailure('Login failed'));
-        toast.error('Login failed. Please try again.');
+        toast.error('Registration failed. Please try again.');
       }
     } finally {
       setIsLoading(false);
@@ -75,9 +63,19 @@ const Login: React.FC = () => {
     >
       <Paper elevation={3} sx={{ p: 4, maxWidth: 400, width: '100%' }}>
         <Typography component="h1" variant="h5" align="center">
-          Sign In
+          Sign Up
         </Typography>
         <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            id="username"
+            label="Username"
+            name="username"
+            autoComplete="username"
+            autoFocus
+          />
           <TextField
             margin="normal"
             required
@@ -86,7 +84,7 @@ const Login: React.FC = () => {
             label="Email Address"
             name="email"
             autoComplete="email"
-            autoFocus
+            type="email"
           />
           <TextField
             margin="normal"
@@ -96,7 +94,16 @@ const Login: React.FC = () => {
             label="Password"
             type="password"
             id="password"
-            autoComplete="current-password"
+            autoComplete="new-password"
+          />
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            name="confirmPassword"
+            label="Confirm Password"
+            type="password"
+            id="confirmPassword"
           />
           <Button
             type="submit"
@@ -105,11 +112,11 @@ const Login: React.FC = () => {
             sx={{ mt: 3, mb: 2 }}
             disabled={isLoading}
           >
-            {isLoading ? 'Signing In...' : 'Sign In'}
+            {isLoading ? 'Signing Up...' : 'Sign Up'}
           </Button>
           <Box sx={{ textAlign: 'center' }}>
-            <Link href="/signup" variant="body2">
-              {"Don't have an account? Sign Up"}
+            <Link href="/login" variant="body2">
+              Already have an account? Sign In
             </Link>
           </Box>
         </Box>
@@ -118,4 +125,4 @@ const Login: React.FC = () => {
   );
 };
 
-export default Login;
+export default SignUp;
