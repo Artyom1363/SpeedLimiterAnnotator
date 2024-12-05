@@ -61,7 +61,7 @@
 
 #### 2.1 **Upload Video**  
 - **POST /api/data/upload_video**  
-  - **Description**: Upload a video file to the system (e.g., to Yandex Cloud S3).  
+  - **Description**: Upload a video file to the system (stored in Yandex Cloud S3).  
   - **Request Body** (multipart/form-data):  
     - `video_file` (file): Video file.  
   - **Response**:  
@@ -124,6 +124,27 @@
     {
       "status": "success",
       "message": "Video timestamps added/adjusted successfully"
+    }
+    ```
+
+#### 2.5 **Get Video File**
+- **GET /api/data/video/{video_id}**
+  - **Description**: Stream video file from Yandex Cloud S3 storage.
+  - **Path Parameters**:
+    - `video_id` (string): The ID of the video to retrieve.
+  - **Response**:
+    - Content-Type: video/mp4
+    - Supports partial content (ranges) for streaming
+    - Body: Video file stream
+  - **Error Responses**:
+    ```json
+    {
+      "detail": "Video not found"
+    }
+    ```
+    ```json
+    {
+      "detail": "Error loading video from S3"
     }
     ```
 
