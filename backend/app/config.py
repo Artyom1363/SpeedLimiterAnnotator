@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     PROJECT_DIR: str = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     
     # Server
-    BACKEND_HOST: str = "46.8.29.217"
+    BACKEND_HOST: str = "46.8.29.89"
     BACKEND_PORT: int = 8000
     
     # Database
@@ -22,8 +22,9 @@ class Settings(BaseSettings):
     
     # CORS
     ALLOWED_ORIGINS: List[str] = [
-        "http://46.8.29.217",
-        "http://46.8.29.217:8000",
+        "http://46.8.29.89",
+        "http://46.8.29.89:8000",
+        "http://46.8.29.89:3000",
         "http://localhost:3000"
     ]
     

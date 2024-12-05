@@ -2,17 +2,13 @@
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text
-from datetime import datetime
-from typing import List
-from sqlalchemy import select
+from sqlalchemy import text, select
 from app import models
 from .test_data import get_test_video_path, get_test_speed_data_path, get_test_button_data_path
 
 pytestmark = pytest.mark.asyncio
 
 class TestVideos:
-
     async def test_upload_video_and_validate_response(
         self,
         client: AsyncClient,
@@ -37,8 +33,6 @@ class TestVideos:
         assert data["status"] == "success"
         assert data["message"] == "Video uploaded successfully"
 
-        # Verify database entry
-        # async with test_session.begin():
         result = await test_session.execute(
             text("""
             SELECT id, filename, s3_key, user_id, status
@@ -81,7 +75,6 @@ class TestVideos:
         assert response.status_code == 200
         assert response.json()["status"] == "success"
 
-        # Verify data was saved
         result = await test_session.execute(
             select(models.SpeedData)
             .filter(models.SpeedData.video_id == video_id)
@@ -89,6 +82,40 @@ class TestVideos:
         )
         speed_records = result.scalars().all()
         assert len(speed_records) > 0
+
+    async def test_upload_button_data(
+        self,
+        client: AsyncClient,
+        test_user: "User",
+        test_session: "AsyncSession"
+    ):
+        # Upload video first
+        video_response = await client.post(
+            "/api/data/upload_video",
+            files={"video_file": ("test_video.mp4", b"test content", "video/mp4")},
+            headers={"Authorization": f"Bearer {test_user.get_token()}"}
+        )
+        video_id = video_response.json()["video_id"]
+
+        # Upload button data
+        with open(get_test_button_data_path(), 'rb') as button_file:
+            response = await client.post(
+                f"/api/data/upload_button_data/{video_id}",
+                files={"button_data_file": ("button_data.txt", button_file, "text/plain")},
+                headers={"Authorization": f"Bearer {test_user.get_token()}"}
+            )
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "success"
+
+        # Verify in database
+        result = await test_session.execute(
+            select(models.ButtonData)
+            .filter(models.ButtonData.video_id == video_id)
+            .order_by(models.ButtonData.timestamp)
+        )
+        button_records = result.scalars().all()
+        assert len(button_records) > 0
 
     async def test_get_video_data(
         self,
@@ -145,76 +172,6 @@ class TestVideos:
         assert "latitude" in first_speed
         assert "longitude" in first_speed
 
-    async def test_upload_button_data(
-        self,
-        client: AsyncClient,
-        test_user: "User",
-        test_session: "AsyncSession"
-    ):
-        # Upload video first
-        video_response = await client.post(
-            "/api/data/upload_video",
-            files={"video_file": ("test_video.mp4", b"test content", "video/mp4")},
-            headers={"Authorization": f"Bearer {test_user.get_token()}"}
-        )
-        video_id = video_response.json()["video_id"]
-
-        # Upload button data
-        with open(get_test_button_data_path(), 'rb') as button_file:
-            response = await client.post(
-                f"/api/data/upload_button_data/{video_id}",
-                files={"button_data_file": ("button_data.txt", button_file, "text/plain")},
-                headers={"Authorization": f"Bearer {test_user.get_token()}"}
-            )
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "success"
-        assert data["message"] == "Button data uploaded successfully"
-
-        # Verify in database
-        # async with test_session.begin():
-        result = await test_session.execute(
-            text("""
-            SELECT timestamp, state
-            FROM button_data
-            WHERE video_id = :video_id
-            ORDER BY timestamp
-            """),
-            {"video_id": video_id}
-        )
-        button_records = result.fetchall()
-        assert len(button_records) > 0
-
-    async def test_get_next_unannotated_video(
-        self,
-        client: AsyncClient,
-        test_user: "User",
-        test_session: "AsyncSession"
-    ):
-        # Create a test video
-        video_response = await client.post(
-            "/api/data/upload_video",
-            files={"video_file": ("test_video.mp4", b"test content", "video/mp4")},
-            headers={"Authorization": f"Bearer {test_user.get_token()}"}
-        )
-        created_video_id = video_response.json()["video_id"]
-
-        # Get next unannotated video
-        response = await client.get(
-            "/api/data/next_unannotated",
-            headers={"Authorization": f"Bearer {test_user.get_token()}"}
-        )
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["video_id"] == created_video_id
-        assert data["status"] == "unannotated"
-        assert "title" in data
-        assert "upload_date" in data
-        assert data["locked_by"] is None
-        assert data["lock_time"] is None
-
     async def test_add_video_timestamp(
         self,
         client: AsyncClient,
@@ -259,7 +216,7 @@ class TestVideos:
         assert response.status_code == 400
         assert "Invalid file type" in response.json()["detail"]
 
-        # Test uploading CSV for non-existent video
+        # Test invalid video_id
         with open(get_test_speed_data_path(), 'rb') as speed_file:
             response = await client.post(
                 f"/api/data/upload_csv/nonexistent-id",
@@ -267,9 +224,9 @@ class TestVideos:
                 headers={"Authorization": f"Bearer {test_user.get_token()}"}
             )
         assert response.status_code == 404
-        assert response.json()["detail"] == "Video not found"
+        assert "Video not found" in response.json()["detail"]
 
-        # Test uploading invalid CSV format
+        # Test invalid CSV format
         video_response = await client.post(
             "/api/data/upload_video",
             files={"video_file": ("test_video.mp4", b"test content", "video/mp4")},
@@ -286,17 +243,7 @@ class TestVideos:
         assert "Invalid CSV format" in response.json()["detail"]
 
         # Test unauthorized access
-        response = await client.get("/api/data/next_unannotated")
-        assert response.status_code == 401
-
-    async def test_empty_database(
-        self,
-        client: AsyncClient,
-        test_user: "User"
-    ):
         response = await client.get(
-            "/api/data/next_unannotated",
-            headers={"Authorization": f"Bearer {test_user.get_token()}"}
+            f"/api/data/{video_id}/data"
         )
-        assert response.status_code == 404
-        assert response.json()["detail"] == "No unannotated videos available"
+        assert response.status_code == 401

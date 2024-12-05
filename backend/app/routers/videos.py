@@ -74,8 +74,8 @@ async def upload_video(
 
         return {
             "status": "success",
-            "message": "Video uploaded successfully",
-            "video_id": video.id
+            "video_id": video.id,
+            "message": "Video uploaded successfully"
         }
 
     finally:
@@ -94,11 +94,9 @@ async def upload_csv_data(
     
     content = await csv_file.read()
     try:
-        # Декодируем содержимое CSV
         decoded_content = content.decode('utf-8')
         csv_reader = csv.DictReader(io.StringIO(decoded_content), skipinitialspace=True)
         
-        # Проверяем наличие необходимых колонок
         required_columns = {
             'Elapsed time (sec)',
             'Speed (km/h)',
@@ -115,7 +113,6 @@ async def upload_csv_data(
                 detail=f"Invalid CSV format. Required columns: {required_columns}"
             )
 
-        # Собираем все строки включая первую
         rows = [first_row] + list(csv_reader)
         await crud.create_speed_data_bulk(db, video_id, rows)
         
@@ -169,22 +166,19 @@ async def upload_button_data(
         "message": "Button data uploaded successfully"
     }
 
-@router.get("/next_unannotated", response_model=schemas.NextVideoResponse)
-async def get_next_unannotated(
+@router.post("/add_video_timestamp/{video_id}", response_model=schemas.StandardResponse)
+async def add_video_timestamp(
+    video_id: str,
+    video_data_with_timestamps: List[dict], 
     current_user: models.User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    video = await crud.get_next_unannotated_video(db)
-    if not video:
-        raise HTTPException(status_code=404, detail="No unannotated videos available")
-
+    video = await get_video_or_404(video_id, db)
+    await crud.add_video_timestamps(db, video_id, video_data_with_timestamps)
+    
     return {
-        "video_id": video.id,
-        "title": video.filename,
-        "upload_date": video.upload_date,
-        "status": video.status,
-        "locked_by": video.locked_by,
-        "lock_time": video.lock_time
+        "status": "success",
+        "message": "Video timestamps added/adjusted successfully"
     }
 
 @router.get("/{video_id}/data", response_model=schemas.DataResponse)
@@ -217,19 +211,4 @@ async def get_video_data(
                 } for data in button_data
             ]
         }
-    }
-
-@router.post("/add_video_timestamp/{video_id}", response_model=schemas.StandardResponse)
-async def add_video_timestamp(
-    video_id: str,
-    video_data_with_timestamps: List[dict], 
-    current_user: models.User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    video = await get_video_or_404(video_id, db)
-    await crud.add_video_timestamps(db, video_id, video_data_with_timestamps)
-    
-    return {
-        "status": "success",
-        "message": "Video timestamps added/adjusted successfully"
     }

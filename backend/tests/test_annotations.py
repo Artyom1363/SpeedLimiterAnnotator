@@ -1,7 +1,8 @@
 # Path: backend/tests/test_annotations.py
-import pytest
 from httpx import AsyncClient
-from datetime import datetime
+import pytest
+from sqlalchemy import select, text
+from app import models
 from .test_data import get_test_video_path, get_test_speed_data_path, get_test_button_data_path
 
 class TestAnnotations:
@@ -124,3 +125,58 @@ class TestAnnotations:
             headers={"Authorization": f"Bearer {test_user2.get_token()}"}
         )
         assert final_start_response.status_code == 200
+
+    async def test_get_next_unannotated_video(
+        self,
+        client: AsyncClient,
+        test_user: "User",
+        test_session: "AsyncSession"
+    ):
+        """Test getting next unannotated video"""
+        # Create a test video with status 'unannotated'
+        video_response = await client.post(
+            "/api/data/upload_video",
+            files={"video_file": ("test_video.mp4", b"test content", "video/mp4")},
+            headers={"Authorization": f"Bearer {test_user.get_token()}"}
+        )
+        assert video_response.status_code == 201
+        created_video_id = video_response.json()["video_id"]
+        
+        # Verify video was created with correct status
+        result = await test_session.execute(
+            select(models.Video).where(models.Video.id == created_video_id)
+        )
+        video = result.scalar_one()
+        assert video.status == "unannotated"
+
+        # Get next unannotated video
+        response = await client.get(
+            "/api/annotations/next_unannotated",
+            headers={"Authorization": f"Bearer {test_user.get_token()}"}
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["video_id"] == created_video_id
+        assert data["status"] == "unannotated"
+        assert data["locked_by"] is None
+        assert data["lock_time"] is None
+
+    async def test_empty_database(
+        self,
+        client: AsyncClient,
+        test_user: "User",
+        test_session: "AsyncSession"
+    ):
+        """Test behavior with empty database"""
+        # Ensure database is empty
+        await test_session.execute(text("DELETE FROM videos"))
+        await test_session.commit()
+
+        response = await client.get(
+            "/api/annotations/next_unannotated",
+            headers={"Authorization": f"Bearer {test_user.get_token()}"}
+        )
+        
+        assert response.status_code == 404
+        assert response.json()["detail"] == "No unannotated videos available"

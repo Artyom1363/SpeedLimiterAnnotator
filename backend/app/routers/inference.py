@@ -13,11 +13,9 @@ router = APIRouter(
 )
 
 # Placeholder for the inference model
-# In a real implementation, you would load your model here
 class InferenceModel:
     async def predict(self, video_path: str) -> List[dict]:
         # Placeholder implementation
-        # Replace with actual model inference
         timestamps = np.arange(0, 100, 0.5)
         predictions = np.random.normal(30, 5, len(timestamps))
         confidences = np.random.uniform(0.8, 1.0, len(timestamps))
@@ -51,7 +49,7 @@ async def run_inference(
     # Store results
     await crud.create_inference_results_bulk(db, video_id, predictions)
 
-@router.post("/inference/run", response_model=schemas.StandardResponse)
+@router.post("/inference/{video_id}/run", response_model=schemas.StandardResponse)
 async def start_inference(
     video_id: str,
     background_tasks: BackgroundTasks,
