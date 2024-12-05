@@ -28,3 +28,12 @@ class MockIntersectionObserver implements IntersectionObserver {
 if (typeof global.IntersectionObserver === 'undefined') {
   global.IntersectionObserver = MockIntersectionObserver as any;
 }
+
+// Отключаем предупреждения React Router
+const originalConsoleWarn = console.warn;
+console.warn = (...args) => {
+  if (args[0]?.includes?.('React Router')) {
+    return;
+  }
+  originalConsoleWarn(...args);
+};

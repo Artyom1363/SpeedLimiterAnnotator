@@ -1,6 +1,6 @@
 import React from 'react';
 import SignUp from './components/SignUp';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -14,23 +14,21 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Router>
-        <Layout>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<SignUp />} />
-            <Route
-              path="/upload"
-              element={
-                <PrivateRoute>
-                  <UploadForm />
-                </PrivateRoute>
-              }
-            />
-            <Route path="/" element={<Navigate to="/upload" replace />} />
-          </Routes>
-        </Layout>
-      </Router>
+      <Layout>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<SignUp />} />
+          <Route
+            path="/upload"
+            element={
+              <PrivateRoute>
+                <UploadForm />
+              </PrivateRoute>
+            }
+          />
+          <Route path="/" element={<Navigate to="/upload" replace />} />
+        </Routes>
+      </Layout>
       <ToastContainer position="top-right" autoClose={5000} />
     </ThemeProvider>
   );
