@@ -1,16 +1,26 @@
 // src/components/UploadForm.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Box, Button, LinearProgress, Typography, Paper } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import { useDispatch } from 'react-redux';
 import { uploadStart, uploadSuccess, uploadFailure } from '../store/slices/uploadSlice';
 import axiosInstance from '../config/axios';
 import { toast } from 'react-toastify';
+import axios from 'axios';
 
 interface FileUploadState {
   file: File | null;
   progress: number;
 }
+
+const csvColumnFormat = [
+  'Elapsed time (sec)',
+  'Speed (km/h)',
+  'Latitude',
+  'Longitude',
+  'Altitude (km)',
+  'Accuracy (km)'
+];
 
 const UploadForm: React.FC = () => {
   const dispatch = useDispatch();
@@ -19,21 +29,42 @@ const UploadForm: React.FC = () => {
   const [buttonFile, setButtonFile] = useState<FileUploadState>({ file: null, progress: 0 });
   const [isUploading, setIsUploading] = useState(false);
 
-  // Debug logging on component mount
-  useEffect(() => {
-    console.log('UploadForm mounted with axios config:', {
-      baseURL: axiosInstance.defaults.baseURL,
-      headers: axiosInstance.defaults.headers
-    });
-  }, []);
+  const validateCsvFile = async (file: File): Promise<boolean> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target?.result as string;
+        const firstLine = text.split('\n')[0];
+        const headers = firstLine.split(',').map(h => h.trim());
+        
+        const hasAllColumns = csvColumnFormat.every(col => 
+          headers.includes(col)
+        );
 
-  const handleFileSelect = (
+        if (!hasAllColumns) {
+          toast.error(`CSV must include these columns: ${csvColumnFormat.join(', ')}`);
+          resolve(false);
+        }
+        resolve(true);
+      };
+      reader.readAsText(file);
+    });
+  };
+
+  const handleFileSelect = async (
     event: React.ChangeEvent<HTMLInputElement>,
-    setFile: React.Dispatch<React.SetStateAction<FileUploadState>>
+    setFile: React.Dispatch<React.SetStateAction<FileUploadState>>,
+    fileType?: 'csv' | 'button' | 'video'
   ) => {
     const file = event.target.files?.[0];
     if (file) {
-      console.log('Selected file:', file.name, 'Size:', file.size);
+      if (fileType === 'csv') {
+        const isValid = await validateCsvFile(file);
+        if (!isValid) {
+          event.target.value = '';
+          return;
+        }
+      }
       setFile({ file, progress: 0 });
     }
   };
@@ -44,23 +75,16 @@ const UploadForm: React.FC = () => {
     const formData = new FormData();
     formData.append('video_file', videoFile.file);
 
-    console.log('Starting video upload:', {
-      fileName: videoFile.file.name,
-      fileSize: videoFile.file.size,
-      fileType: videoFile.file.type
-    });
-
     try {
+      console.log('Starting video upload...');
       const response = await axiosInstance.post('/api/data/upload_video', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         },
         onUploadProgress: (progressEvent) => {
           const progress = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
-          console.log('Video upload progress:', progress);
           setVideoFile(prev => ({ ...prev, progress }));
-        },
-        timeout: 300000 // 5 minutes timeout
+        }
       });
 
       console.log('Video upload response:', response.data);
@@ -71,67 +95,71 @@ const UploadForm: React.FC = () => {
 
       return response.data.video_id;
     } catch (error) {
-      console.error('Video upload error details:', {
-        error,
-        requestConfig: axiosInstance.defaults,
-        fileInfo: {
-          name: videoFile.file.name,
-          size: videoFile.file.size,
-          type: videoFile.file.type
-        }
-      });
+      console.error('Video upload failed:', error);
       throw error;
     }
   };
 
-  const uploadCsv = async (videoId: string): Promise<void> => {
+  const uploadCsv = async (videoId: string) => {
     if (!csvFile.file) return;
 
     const formData = new FormData();
-    formData.append('video_id', videoId);
     formData.append('csv_file', csvFile.file);
 
     try {
       console.log('Starting CSV upload for video_id:', videoId);
-      await axiosInstance.post('/api/data/upload_csv', formData, {
+      const response = await axiosInstance.post(`/api/data/upload_csv/${videoId}`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         },
         onUploadProgress: (progressEvent) => {
           const progress = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
-          console.log('CSV upload progress:', progress);
           setCsvFile(prev => ({ ...prev, progress }));
-        },
-        timeout: 300000
+        }
       });
+
+      console.log('CSV upload response:', response.data);
+      
+      if (response.data.status !== 'success') {
+        throw new Error(response.data.message || 'CSV upload failed');
+      }
     } catch (error) {
-      console.error('CSV upload error:', error);
+      console.error('CSV upload failed:', error);
+      if (axios.isAxiosError(error) && error.response?.data?.detail) {
+        throw new Error(error.response.data.detail);
+      }
       throw error;
     }
   };
 
-  const uploadButtonData = async (videoId: string): Promise<void> => {
+  const uploadButtonData = async (videoId: string) => {
     if (!buttonFile.file) return;
 
     const formData = new FormData();
-    formData.append('video_id', videoId);
     formData.append('button_data_file', buttonFile.file);
 
     try {
       console.log('Starting button data upload for video_id:', videoId);
-      await axiosInstance.post('/api/data/upload_button_data', formData, {
+      const response = await axiosInstance.post(`/api/data/upload_button_data/${videoId}`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         },
         onUploadProgress: (progressEvent) => {
           const progress = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
-          console.log('Button data upload progress:', progress);
           setButtonFile(prev => ({ ...prev, progress }));
-        },
-        timeout: 300000
+        }
       });
+
+      console.log('Button data upload response:', response.data);
+      
+      if (response.data.status !== 'success') {
+        throw new Error(response.data.message || 'Button data upload failed');
+      }
     } catch (error) {
-      console.error('Button data upload error:', error);
+      console.error('Button data upload failed:', error);
+      if (axios.isAxiosError(error) && error.response?.data?.detail) {
+        throw new Error(error.response.data.detail);
+      }
       throw error;
     }
   };
@@ -146,17 +174,14 @@ const UploadForm: React.FC = () => {
     dispatch(uploadStart());
 
     try {
-      // Upload video
       const videoId = await uploadVideo();
       toast.success('Video uploaded successfully!');
 
-      // Upload CSV if available
       if (csvFile.file) {
         await uploadCsv(videoId);
         toast.success('CSV data uploaded successfully!');
       }
 
-      // Upload button data if available
       if (buttonFile.file) {
         await uploadButtonData(videoId);
         toast.success('Button data uploaded successfully!');
@@ -174,7 +199,6 @@ const UploadForm: React.FC = () => {
     }
   };
 
-  // Render JSX remains the same as in previous version
   return (
     <Paper elevation={3} sx={{ p: 3, maxWidth: 600, mx: 'auto', mt: 4 }}>
       <Box sx={{ textAlign: 'center' }}>
@@ -185,7 +209,7 @@ const UploadForm: React.FC = () => {
             style={{ display: 'none' }}
             id="video-upload"
             type="file"
-            onChange={(e) => handleFileSelect(e, setVideoFile)}
+            onChange={(e) => handleFileSelect(e, setVideoFile, 'video')}
             disabled={isUploading}
           />
           <label htmlFor="video-upload">
@@ -218,7 +242,7 @@ const UploadForm: React.FC = () => {
             style={{ display: 'none' }}
             id="csv-upload"
             type="file"
-            onChange={(e) => handleFileSelect(e, setCsvFile)}
+            onChange={(e) => handleFileSelect(e, setCsvFile, 'csv')}
             disabled={isUploading}
           />
           <label htmlFor="csv-upload">
@@ -242,6 +266,9 @@ const UploadForm: React.FC = () => {
               <Typography variant="body2">CSV upload progress: {csvFile.progress}%</Typography>
             </Box>
           )}
+          <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 1 }}>
+            Required CSV columns: {csvColumnFormat.join(', ')}
+          </Typography>
         </Box>
 
         {/* Button Data Upload */}
@@ -251,7 +278,7 @@ const UploadForm: React.FC = () => {
             style={{ display: 'none' }}
             id="button-upload"
             type="file"
-            onChange={(e) => handleFileSelect(e, setButtonFile)}
+            onChange={(e) => handleFileSelect(e, setButtonFile, 'button')}
             disabled={isUploading}
           />
           <label htmlFor="button-upload">
