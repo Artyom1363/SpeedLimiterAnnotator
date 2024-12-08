@@ -7,6 +7,8 @@ import SpeedOffsetControls from './SpeedOffsetControls';
 import { useParams } from 'react-router-dom';
 import axiosInstance from '../config/axios';
 import SpeedChart from './SpeedChart';
+import SegmentManager from './SegmentManager';
+import { Segment } from '../types/segment';
 
 interface VideoData {
   video_id: string;
@@ -40,6 +42,7 @@ const VideoAnnotation: React.FC = () => {
   const [speedOffset, setSpeedOffset] = useState(0);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const videoRef = useRef<VideoPlayerRef>(null);
+  const [segments, setSegments] = useState<Segment[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -153,6 +156,16 @@ const VideoAnnotation: React.FC = () => {
     return currentPoint.speed + (nextPoint.speed - currentPoint.speed) * fraction;
   };
 
+  const handleSegmentCreate = (segment: Segment) => {
+    setSegments(prev => [...prev, segment]);
+    setHasUnsavedChanges(true);
+  };
+
+  const handleSegmentDelete = (segmentId: string) => {
+    setSegments(prev => prev.filter(segment => segment.id !== segmentId));
+    setHasUnsavedChanges(true);
+  };
+
   if (isLoading) return <div>Loading...</div>;
   if (error || !videoData) return <div>Error: {error || 'Failed to load data'}</div>;
 
@@ -189,12 +202,19 @@ const VideoAnnotation: React.FC = () => {
           currentTime={currentTime}
           onTimeChange={handleTimeUpdate}
           videoDuration={videoDuration}
+          segments={segments}
+          onSegmentDelete={handleSegmentDelete}
         />
         <SpeedChart 
           speedData={videoData.speed_data}
           currentTime={currentTime}
           videoDuration={videoDuration}
           speedOffset={speedOffset}
+        />
+        <SegmentManager
+          currentTime={currentTime}
+          videoDuration={videoDuration}
+          onSegmentCreate={handleSegmentCreate}
         />
       </Box>
     </Container>
