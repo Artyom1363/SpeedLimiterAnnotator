@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -34,6 +34,26 @@ interface SpeedChartProps {
 const SpeedChart: React.FC<SpeedChartProps> = ({ speedData, currentTime }) => {
   const chartRef = useRef<any>(null);
 
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (chart) {
+      const chartInstance = chart.chartInstance;
+      if (chartInstance) {
+        const xScale = chartInstance.scales.x;
+        const visibleRange = xScale.max - xScale.min;
+        
+        if (currentTime < xScale.min || currentTime > xScale.max) {
+          const newMin = Math.max(0, currentTime - visibleRange / 2);
+          const newMax = newMin + visibleRange;
+          
+          chartInstance.options.scales.x.min = newMin;
+          chartInstance.options.scales.x.max = newMax;
+          chartInstance.update('none');
+        }
+      }
+    }
+  }, [currentTime]);
+
   const data = {
     type: 'line' as const,
     datasets: [{
@@ -62,8 +82,8 @@ const SpeedChart: React.FC<SpeedChartProps> = ({ speedData, currentTime }) => {
           display: true,
           text: 'Время (секунды)'
         },
-        min: Math.min(...speedData.map(d => d.timestamp)),
-        max: Math.max(...speedData.map(d => d.timestamp))
+        min: Math.max(0, currentTime - 10),
+        max: currentTime + 10,
       },
       y: {
         type: 'linear',
@@ -82,6 +102,22 @@ const SpeedChart: React.FC<SpeedChartProps> = ({ speedData, currentTime }) => {
       }
     }
   };
+
+  if (chartRef.current) {
+    const chart = chartRef.current;
+    const ctx = chart.ctx;
+    const xScale = chart.scales.x;
+    const yScale = chart.scales.y;
+    
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(xScale.getPixelForValue(currentTime), yScale.top);
+    ctx.lineTo(xScale.getPixelForValue(currentTime), yScale.bottom);
+    ctx.strokeStyle = 'red';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+  }
 
   return (
     <Box sx={{ 
