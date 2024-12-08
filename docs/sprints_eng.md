@@ -53,15 +53,15 @@
 - Implement basic video-speed synchronization
 - Add smooth timeline scrolling
 
-### Sprint 7: Speed Data Synchronization
-**Goal**: Implement speed data synchronization features
+### Sprint 7: Speed Data Offset Controls
+**Goal**: Implement speed data synchronization
 **Technologies**: React.js, Redux
-**MVP**: Working synchronization controls
-- Add speed data offset controls
-- Implement visual timestamp adjustment
-- Create speed data shift functionality
-- Store offset values in local state
-- Implement real-time speed display updates
+**MVP**: Working speed data offset controls
+- Add controls for shifting speed data left/right
+- Create offset input field for precise adjustment
+- Implement real-time speed value updates when shifting
+- Add visual feedback during offset adjustment
+- Store offset value in local state
 
 ### Sprint 8: Segment Creation Interface
 **Goal**: Implement segment creation and editing
@@ -87,19 +87,19 @@
 **Goal**: Enhance user experience and local data management
 **Technologies**: React.js, IndexedDB
 **MVP**: Polished interface with local data persistence
-- Add keyboard shortcuts
 - Improve segment manipulation UX
 - Implement local data persistence
 - Add loading states
 - Enhance visual feedback
+- Add error handling
 
 ### Sprint 11: Backend API Enhancement
-**Goal**: Add new API endpoints for speed data management
+**Goal**: Add new API endpoints for speed data and offset management
 **Technologies**: Python, FastAPI, PostgreSQL
-**MVP**: Enhanced backend API with speed data handling
+**MVP**: Enhanced backend API
 - Add S3 storage support for speed data files
 - Create endpoint for retrieving next unannotated video with speed data
-- Implement timestamp storage for video-speed synchronization
+- Add storage for speed data offset values
 - Update database schema for new data requirements
 
 ### Sprint 12: Segment Management Backend
@@ -110,14 +110,12 @@
 - Add endpoints for segment CRUD operations
 - Implement segment metadata storage
 - Add segment version control
-- Create segment validation logic
 
 ### Sprint 13: Data Synchronization Implementation
 **Goal**: Connect frontend with new backend functionality
 **Technologies**: Python, FastAPI, React.js
 **MVP**: Complete data persistence system
 - Implement backend sync for segments
-- Create change conflict resolution
 - Add progress tracking
 - Implement data export functionality
 - Add error handling for failed syncs
