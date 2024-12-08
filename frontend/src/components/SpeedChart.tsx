@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -8,7 +8,8 @@ import {
   LineElement,
   Title,
   Tooltip,
-  Legend
+  TimeScale,
+  ChartOptions
 } from 'chart.js';
 import { Box } from '@mui/material';
 
@@ -19,7 +20,7 @@ ChartJS.register(
   LineElement,
   Title,
   Tooltip,
-  Legend
+  TimeScale
 );
 
 interface SpeedChartProps {
@@ -31,50 +32,67 @@ interface SpeedChartProps {
 }
 
 const SpeedChart: React.FC<SpeedChartProps> = ({ speedData, currentTime }) => {
+  const chartRef = useRef<any>(null);
+
   const data = {
-    labels: speedData.map(d => d.timestamp.toFixed(1)),
-    datasets: [
-      {
-        label: 'Speed (km/h)',
-        data: speedData.map(d => d.speed),
-        borderColor: 'rgb(75, 192, 192)',
-        tension: 0.1
-      }
-    ]
+    type: 'line' as const,
+    datasets: [{
+      label: 'Скорость',
+      data: speedData.map(d => ({
+        x: d.timestamp,
+        y: d.speed
+      })),
+      borderColor: 'rgb(75, 192, 192)',
+      tension: 0.1,
+      pointRadius: 0
+    }]
   };
 
-  const options = {
+  const options: ChartOptions<'line'> = {
     responsive: true,
-    plugins: {
-      legend: {
-        position: 'top' as const,
-      },
-      title: {
-        display: true,
-        text: 'Speed Over Time'
-      }
+    maintainAspectRatio: false,
+    animation: {
+      duration: 0
     },
     scales: {
       x: {
+        type: 'linear',
+        position: 'bottom',
         title: {
           display: true,
-          text: 'Time (seconds)'
-        }
+          text: 'Время (секунды)'
+        },
+        min: Math.min(...speedData.map(d => d.timestamp)),
+        max: Math.max(...speedData.map(d => d.timestamp))
       },
       y: {
+        type: 'linear',
+        position: 'left',
         title: {
           display: true,
-          text: 'Speed (km/h)'
+          text: 'Скорость (км/ч)'
         }
+      }
+    },
+    plugins: {
+      tooltip: {
+        enabled: true,
+        mode: 'nearest',
+        intersect: false
       }
     }
   };
 
   return (
-    <Box sx={{ width: '100%', maxWidth: '800px', mx: 'auto', mt: 2 }}>
-      <Line data={data} options={options} />
+    <Box sx={{ 
+      width: '100%', 
+      height: '200px',
+      mt: 2,
+      position: 'relative'
+    }}>
+      <Line ref={chartRef} data={data} options={options} />
     </Box>
   );
 };
 
-export default SpeedChart; 
+export default SpeedChart;

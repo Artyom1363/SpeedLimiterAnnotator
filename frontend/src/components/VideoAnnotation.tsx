@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Container } from '@mui/material';
+import { Box, Container, Typography } from '@mui/material';
 import VideoPlayer from './VideoPlayer';
 import SpeedChart from './SpeedChart';
-import ButtonEvents from './ButtonEvents';
 import { useParams } from 'react-router-dom';
 import axiosInstance from '../config/axios';
 
@@ -12,10 +11,6 @@ interface VideoData {
     timestamp: number;
     speed: number;
   }>;
-  button_data: Array<{
-    timestamp: number;
-    state: boolean;
-  }>;
 }
 
 const VideoAnnotation: React.FC = () => {
@@ -24,15 +19,13 @@ const VideoAnnotation: React.FC = () => {
   const [videoData, setVideoData] = useState<VideoData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentSpeed, setCurrentSpeed] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        console.log('Fetching data for videoId:', videoId);
-        
         const response = await axiosInstance.get(`/api/data/${videoId}/data`);
-        console.log('API Response:', response.data);
         
         if (response.data.status === 'success') {
           setVideoData(response.data.data);
@@ -54,22 +47,16 @@ const VideoAnnotation: React.FC = () => {
 
   const handleTimeUpdate = (time: number) => {
     setCurrentTime(time);
+    if (videoData?.speed_data) {
+      const currentSpeedData = videoData.speed_data.find(
+        data => Math.abs(data.timestamp - time) < 0.1
+      );
+      setCurrentSpeed(currentSpeedData?.speed || null);
+    }
   };
 
-  const handleVideoError = (error: any) => {
-    console.error('Video loading error:', error);
-    setError('Ошибка загрузки видео');
-  };
-
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
-
-  if (error || !videoData) {
-    return <div>Error: {error || 'Failed to load data'}</div>;
-  }
-
-  console.log('VideoData:', videoData); // Добавляем для отладки
+  if (isLoading) return <div>Loading...</div>;
+  if (error || !videoData) return <div>Error: {error || 'Failed to load data'}</div>;
 
   return (
     <Container maxWidth="lg">
@@ -77,14 +64,23 @@ const VideoAnnotation: React.FC = () => {
         <VideoPlayer
           videoId={videoData.video_id}
           onTimeUpdate={handleTimeUpdate}
-          onError={handleVideoError}
         />
+        {currentSpeed !== null && (
+          <Box sx={{ 
+            textAlign: 'center', 
+            my: 2, 
+            p: 2, 
+            bgcolor: 'background.paper',
+            borderRadius: 1,
+            boxShadow: 1
+          }}>
+            <Typography variant="h3">
+              {currentSpeed.toFixed(1)} км/ч
+            </Typography>
+          </Box>
+        )}
         <SpeedChart
           speedData={videoData.speed_data}
-          currentTime={currentTime}
-        />
-        <ButtonEvents
-          buttonData={videoData.button_data}
           currentTime={currentTime}
         />
       </Box>
