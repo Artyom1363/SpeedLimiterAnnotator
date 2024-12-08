@@ -43,69 +43,91 @@
 - Create synchronized timeline display
 - Add basic playback controls
 
-### Sprint 6: Data Synchronization and Editing Interface
-**Goal**: Create comprehensive data editing and synchronization features.
-**Technologies**: React.js, Redux, D3.js
-**MVP**: Full editing interface with synchronization capabilities.
-- Implement timeline synchronization controls
-- Add interval selection functionality
-- Create speed editing interface
-- Implement local storage for annotations
-- Add undo/redo functionality
+### Sprint 6: Timeline Interface Redesign
+**Goal**: Implement new simplified timeline interface
+**Technologies**: React.js, Redux
+**MVP**: New timeline interface with speed display
+- Remove button event visualization
+- Create unified timeline component
+- Add current speed display window
+- Implement basic video-speed synchronization
+- Add smooth timeline scrolling
 
-### Sprint 7: Model Integration and Inference
-**Goal**: Integrate ML model for automated error detection.
-**Technologies**: Python, Celery, Redis
-**MVP**: Functional inference system with result storage.
-- Set up Celery and Redis for async processing
-- Integrate existing model code
-- Implement inference queue management
-- Store and expose inference results
+### Sprint 7: Speed Data Synchronization
+**Goal**: Implement speed data synchronization features
+**Technologies**: React.js, Redux
+**MVP**: Working synchronization controls
+- Add speed data offset controls
+- Implement visual timestamp adjustment
+- Create speed data shift functionality
+- Store offset values in local state
+- Implement real-time speed display updates
 
-### Sprint 8: Annotation System and Change Tracking
-**Goal**: Implement comprehensive annotation functionality.
-**Technologies**: Python, FastAPI, PostgreSQL, React.js
-**MVP**: Complete annotation system with version control.
-- Create annotation data models
-- Implement annotation API endpoints
-- Add author tracking for changes
-- Create frontend annotation interface
-- Implement version control for annotations
+### Sprint 8: Segment Creation Interface
+**Goal**: Implement segment creation and editing
+**Technologies**: React.js, Redux
+**MVP**: Functional segment creation interface
+- Add segment type selector (speed adjustment/irrelevant)
+- Implement segment boundary creation
+- Create segment drag-and-drop functionality
+- Add segment deletion
+- Implement basic segment styling
 
-### Sprint 9: Geolocation and Map Integration
-**Goal**: Add geolocation visualization features.
-**Technologies**: React.js, Leaflet.js
-**MVP**: Map interface with synchronized route display.
-- Integrate Leaflet.js
-- Create synchronized map view
-- Implement route visualization
-- Add location-based filtering
+### Sprint 9: Speed Adjustment Interface
+**Goal**: Add speed adjustment functionality
+**Technologies**: React.js, Redux
+**MVP**: Complete speed adjustment features
+- Create speed modification interface
+- Implement segment speed adjustment
+- Add irrelevant data marking
+- Create segment info display
+- Implement local storage for changes
 
-### Sprint 10: Enhanced Error Detection Interface
-**Goal**: Create interface for model-detected issues.
-**Technologies**: React.js, Chart.js/D3.js
-**MVP**: Visual system for highlighting and managing detected errors.
-- Display model-detected issues on timeline
-- Add quick navigation to problem areas
-- Implement error classification interface
-- Create error review workflow
+### Sprint 10: Frontend Polish
+**Goal**: Enhance user experience and local data management
+**Technologies**: React.js, IndexedDB
+**MVP**: Polished interface with local data persistence
+- Add keyboard shortcuts
+- Improve segment manipulation UX
+- Implement local data persistence
+- Add loading states
+- Enhance visual feedback
 
-### Sprint 11: System Integration and Testing
-**Goal**: Ensure full system integration and reliability.
-**Technologies**: Python, React.js, Docker, Selenium
-**MVP**: Fully tested and integrated system.
-- Implement end-to-end testing
-- Perform load testing
-- Add system monitoring
-- Fix identified issues
-- Document system architecture and APIs
+### Sprint 11: Backend API Enhancement
+**Goal**: Add new API endpoints for speed data management
+**Technologies**: Python, FastAPI, PostgreSQL
+**MVP**: Enhanced backend API with speed data handling
+- Add S3 storage support for speed data files
+- Create endpoint for retrieving next unannotated video with speed data
+- Implement timestamp storage for video-speed synchronization
+- Update database schema for new data requirements
 
-### Sprint 12: Performance Optimization and Polish
-**Goal**: Optimize system performance and user experience.
-**Technologies**: All previously used technologies
-**MVP**: Production-ready system with optimized performance.
-- Optimize frontend performance
-- Improve backend response times
-- Enhance error handling
-- Add final UI polish
-- Prepare deployment documentation
+### Sprint 12: Segment Management Backend
+**Goal**: Create backend support for segment management
+**Technologies**: Python, FastAPI, PostgreSQL
+**MVP**: API endpoints for segment operations
+- Create data models for segments
+- Add endpoints for segment CRUD operations
+- Implement segment metadata storage
+- Add segment version control
+- Create segment validation logic
+
+### Sprint 13: Data Synchronization Implementation
+**Goal**: Connect frontend with new backend functionality
+**Technologies**: Python, FastAPI, React.js
+**MVP**: Complete data persistence system
+- Implement backend sync for segments
+- Create change conflict resolution
+- Add progress tracking
+- Implement data export functionality
+- Add error handling for failed syncs
+
+### Sprint 14: Testing and Performance
+**Goal**: Ensure system reliability and performance
+**Technologies**: Jest, Python unittest, Selenium
+**MVP**: Fully tested and optimized system
+- Add end-to-end tests
+- Implement performance optimization
+- Add error recovery
+- Create system monitoring
+- Document final implementation
