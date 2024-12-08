@@ -1,17 +1,20 @@
 # Path: backend/app/routers/videos.py
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from typing import List
 from .. import crud, schemas, models
 from ..database import get_db
 from ..dependencies import get_current_user, get_video_or_404, check_video_lock
+from starlette.background import BackgroundTask
 import csv
 import io
 import aiofiles
 import os
 import boto3
 from botocore.exceptions import ClientError
+from fastapi.responses import FileResponse
+from fastapi.responses import StreamingResponse
 
 # Create uploads directory
 UPLOAD_DIR = "/code/uploads"
@@ -212,3 +215,54 @@ async def get_video_data(
             ]
         }
     }
+
+@router.api_route("/video/{video_id}", methods=["GET", "HEAD"])
+async def get_video_file(
+    video_id: str,
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db)
+):
+    video = await crud.get_video(db, video_id)
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found")
+    
+    try:
+        s3_client, bucket_name = await get_s3_client()
+        
+        # Получаем объект напрямую из S3
+        try:
+            s3_response = s3_client.get_object(
+                Bucket=bucket_name,
+                Key=video.s3_key
+            )
+            
+            # Настраиваем заголовки для стриминга
+            response.headers["Content-Type"] = "video/mp4"
+            response.headers["Accept-Ranges"] = "bytes"
+            response.headers["Content-Length"] = str(s3_response['ContentLength'])
+            
+            # Возвращаем тело ответа как стрим
+            return StreamingResponse(
+                s3_response['Body'].iter_chunks(),
+                media_type="video/mp4",
+                headers={
+                    "Content-Disposition": f'inline; filename="{video.filename}"',
+                    "Accept-Ranges": "bytes"
+                }
+            )
+            
+        except Exception as e:
+            print(f"S3 error: {str(e)}")
+            raise HTTPException(status_code=404, detail="Video not found in S3")
+            
+    except Exception as e:
+        print(f"Unexpected error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+async def get_file_size(s3_client, bucket_name: str, key: str) -> int:
+    try:
+        response = s3_client.head_object(Bucket=bucket_name, Key=key)
+        return response['ContentLength']
+    except Exception:
+        return 0
