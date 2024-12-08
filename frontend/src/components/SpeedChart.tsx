@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef } from 'react';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -29,39 +29,21 @@ interface SpeedChartProps {
     speed: number;
   }>;
   currentTime: number;
+  videoDuration: number;
 }
 
-const SpeedChart: React.FC<SpeedChartProps> = ({ speedData, currentTime }) => {
+const SpeedChart: React.FC<SpeedChartProps> = ({ speedData, currentTime, videoDuration }) => {
   const chartRef = useRef<any>(null);
-
-  useEffect(() => {
-    const chart = chartRef.current;
-    if (chart) {
-      const chartInstance = chart.chartInstance;
-      if (chartInstance) {
-        const xScale = chartInstance.scales.x;
-        const visibleRange = xScale.max - xScale.min;
-        
-        if (currentTime < xScale.min || currentTime > xScale.max) {
-          const newMin = Math.max(0, currentTime - visibleRange / 2);
-          const newMax = newMin + visibleRange;
-          
-          chartInstance.options.scales.x.min = newMin;
-          chartInstance.options.scales.x.max = newMax;
-          chartInstance.update('none');
-        }
-      }
-    }
-  }, [currentTime]);
-
+  
+  const chartData = speedData.map((d, index) => ({
+    x: index,
+    y: d.speed
+  }));
+  
   const data = {
-    type: 'line' as const,
     datasets: [{
       label: 'Скорость',
-      data: speedData.map(d => ({
-        x: d.timestamp,
-        y: d.speed
-      })),
+      data: chartData,
       borderColor: 'rgb(75, 192, 192)',
       tension: 0.1,
       pointRadius: 0
@@ -83,7 +65,7 @@ const SpeedChart: React.FC<SpeedChartProps> = ({ speedData, currentTime }) => {
           text: 'Время (секунды)'
         },
         min: Math.max(0, currentTime - 10),
-        max: currentTime + 10,
+        max: Math.min(speedData.length - 1, currentTime + 10),
       },
       y: {
         type: 'linear',
@@ -91,41 +73,18 @@ const SpeedChart: React.FC<SpeedChartProps> = ({ speedData, currentTime }) => {
         title: {
           display: true,
           text: 'Скорость (км/ч)'
+        },
+        min: 0,
+        max: 25,
+        ticks: {
+          stepSize: 5
         }
-      }
-    },
-    plugins: {
-      tooltip: {
-        enabled: true,
-        mode: 'nearest',
-        intersect: false
       }
     }
   };
 
-  if (chartRef.current) {
-    const chart = chartRef.current;
-    const ctx = chart.ctx;
-    const xScale = chart.scales.x;
-    const yScale = chart.scales.y;
-    
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(xScale.getPixelForValue(currentTime), yScale.top);
-    ctx.lineTo(xScale.getPixelForValue(currentTime), yScale.bottom);
-    ctx.strokeStyle = 'red';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.restore();
-  }
-
   return (
-    <Box sx={{ 
-      width: '100%', 
-      height: '200px',
-      mt: 2,
-      position: 'relative'
-    }}>
+    <Box sx={{ width: '100%', height: '200px', mt: 2 }}>
       <Line ref={chartRef} data={data} options={options} />
     </Box>
   );

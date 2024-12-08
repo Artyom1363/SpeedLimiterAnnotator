@@ -5,6 +5,7 @@ import { Box, CircularProgress } from '@mui/material';
 interface VideoPlayerProps {
   videoId: string;
   onTimeUpdate?: (currentTime: number) => void;
+  onReady?: (duration: number) => void;
   onError?: (error: any) => void;
 }
 
@@ -15,6 +16,7 @@ interface VideoPlayerRef {
 const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ 
   videoId, 
   onTimeUpdate, 
+  onReady, 
   onError 
 }, ref) => {
   const videoUrl = `${process.env.REACT_APP_API_URL || 'http://46.8.29.89'}/api/data/video/${videoId}`;
@@ -36,6 +38,12 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({
   const handleProgress = (state: { playedSeconds: number }) => {
     if (onTimeUpdate) {
       onTimeUpdate(state.playedSeconds);
+    }
+  };
+
+  const handleDuration = (duration: number) => {
+    if (onReady) {
+      onReady(duration);
     }
   };
 
@@ -63,6 +71,7 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({
         height="100%"
         progressInterval={100}
         onProgress={handleProgress}
+        onDuration={handleDuration}
         onReady={() => setIsLoading(false)}
         onError={onError}
       />

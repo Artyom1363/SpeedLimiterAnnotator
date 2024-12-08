@@ -5,6 +5,7 @@ import Timeline from './Timeline';
 import SpeedDisplay from './SpeedDisplay';
 import { useParams } from 'react-router-dom';
 import axiosInstance from '../config/axios';
+import SpeedChart from './SpeedChart';
 
 interface VideoData {
   video_id: string;
@@ -23,39 +24,64 @@ interface VideoPlayerRef {
   currentTime: number;
 }
 
+interface SpeedDataPoint {
+  timestamp: string | number;
+  speed: string | number;
+}
+
 const VideoAnnotation: React.FC = () => {
   const { videoId } = useParams<{ videoId: string }>();
   const [currentTime, setCurrentTime] = useState(0);
   const [videoData, setVideoData] = useState<VideoData | null>(null);
+  const [videoDuration, setVideoDuration] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const videoRef = useRef<VideoPlayerRef>(null);
 
   const getCurrentSpeed = (time: number, speedData: TimelineData[]): number | null => {
-    if (!speedData.length) return null;
+    if (!speedData || !speedData.length) {
+      return null;
+    }
 
-    const index = speedData.findIndex(point => point.timestamp > time);
+    const index = Math.floor(time);
+    if (index >= speedData.length) {
+      return speedData[speedData.length - 1].speed;
+    }
+    if (index < 0) {
+      return speedData[0].speed;
+    }
     
-    if (index === -1) return speedData[speedData.length - 1].speed;
-    if (index === 0) return speedData[0].speed;
+    const fraction = time - index;
+    const currentPoint = speedData[index];
+    const nextPoint = speedData[Math.min(index + 1, speedData.length - 1)];
     
-    const prevPoint = speedData[index - 1];
-    const nextPoint = speedData[index];
-    
-    const timeDiff = nextPoint.timestamp - prevPoint.timestamp;
-    const speedDiff = nextPoint.speed - prevPoint.speed;
-    const timeOffset = time - prevPoint.timestamp;
-    
-    return prevPoint.speed + (speedDiff * timeOffset) / timeDiff;
+    return currentPoint.speed + (nextPoint.speed - currentPoint.speed) * fraction;
   };
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const response = await axiosInstance.get(`/api/data/${videoId}/data`);
+        console.log('Received data:', response.data.data);
+        
+        if (!response.data.data.speed_data || !Array.isArray(response.data.data.speed_data)) {
+          throw new Error('Invalid speed data format');
+        }
+
+        const validSpeedData = response.data.data.speed_data
+          .map((point: SpeedDataPoint) => ({
+            timestamp: Number(point.timestamp),
+            speed: Number(point.speed)
+          }))
+          .filter((point: { timestamp: number; speed: number }) => 
+            !isNaN(point.timestamp) && !isNaN(point.speed)
+          );
+
+        console.log('Processed speed data:', validSpeedData);
+
         setVideoData({
           video_id: response.data.data.video_id,
-          speed_data: response.data.data.speed_data
+          speed_data: validSpeedData
         });
         setIsLoading(false);
       } catch (err) {
@@ -74,6 +100,10 @@ const VideoAnnotation: React.FC = () => {
     }
   };
 
+  const handleVideoReady = (duration: number) => {
+    setVideoDuration(duration);
+  };
+
   if (isLoading) return <div>Loading...</div>;
   if (error || !videoData) return <div>Error: {error || 'Failed to load data'}</div>;
 
@@ -86,12 +116,18 @@ const VideoAnnotation: React.FC = () => {
         <VideoPlayer
           videoId={videoData.video_id}
           onTimeUpdate={handleTimeUpdate}
+          onReady={handleVideoReady}
           ref={videoRef}
         />
         <Timeline
-          speedData={videoData.speed_data}
           currentTime={currentTime}
           onTimeChange={handleTimeUpdate}
+          videoDuration={videoDuration}
+        />
+        <SpeedChart 
+          speedData={videoData.speed_data}
+          currentTime={currentTime}
+          videoDuration={videoDuration}
         />
       </Box>
     </Container>
