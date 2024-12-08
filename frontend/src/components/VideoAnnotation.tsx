@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Box, Container } from '@mui/material';
+import { Box, Container, Button } from '@mui/material';
 import VideoPlayer from './VideoPlayer';
 import Timeline from './Timeline';
 import SpeedDisplay from './SpeedDisplay';
+import SpeedOffsetControls from './SpeedOffsetControls';
 import { useParams } from 'react-router-dom';
 import axiosInstance from '../config/axios';
 import SpeedChart from './SpeedChart';
@@ -36,27 +37,9 @@ const VideoAnnotation: React.FC = () => {
   const [videoDuration, setVideoDuration] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [speedOffset, setSpeedOffset] = useState(0);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const videoRef = useRef<VideoPlayerRef>(null);
-
-  const getCurrentSpeed = (time: number, speedData: TimelineData[]): number | null => {
-    if (!speedData || !speedData.length) {
-      return null;
-    }
-
-    const index = Math.floor(time);
-    if (index >= speedData.length) {
-      return speedData[speedData.length - 1].speed;
-    }
-    if (index < 0) {
-      return speedData[0].speed;
-    }
-    
-    const fraction = time - index;
-    const currentPoint = speedData[index];
-    const nextPoint = speedData[Math.min(index + 1, speedData.length - 1)];
-    
-    return currentPoint.speed + (nextPoint.speed - currentPoint.speed) * fraction;
-  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -95,8 +78,20 @@ const VideoAnnotation: React.FC = () => {
 
   const handleTimeUpdate = (time: number) => {
     setCurrentTime(time);
-    if (videoRef.current && Math.abs(videoRef.current.currentTime - time) > 0.5) {
-      videoRef.current.currentTime = time;
+    if (videoRef.current && Math.abs(videoRef.current.currentTime - time) > 1.0) {
+      const currentVideoTime = videoRef.current.currentTime;
+      const targetTime = Math.max(0, Math.min(time, videoDuration));
+      const step = (targetTime - currentVideoTime) / 10;
+      
+      let frame = 0;
+      const animate = () => {
+        if (frame < 10 && videoRef.current) {
+          videoRef.current.currentTime = currentVideoTime + step * frame;
+          frame++;
+          requestAnimationFrame(animate);
+        }
+      };
+      animate();
     }
   };
 
@@ -104,10 +99,66 @@ const VideoAnnotation: React.FC = () => {
     setVideoDuration(duration);
   };
 
+  const handleOffsetChange = (newOffset: number) => {
+    setSpeedOffset(newOffset);
+    setHasUnsavedChanges(true);
+  };
+
+  const saveChanges = async () => {
+    if (!hasUnsavedChanges) return;
+
+    try {
+      await axiosInstance.post(`/api/annotations/${videoId}/shift_timestamp`, {
+        timestamp_offset: Number(speedOffset.toFixed(1))
+      });
+      setHasUnsavedChanges(false);
+    } catch (err) {
+      console.error('Error saving changes:', err);
+    }
+  };
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [hasUnsavedChanges]);
+
+  const getCurrentSpeed = (time: number, speedData: TimelineData[]): number | null => {
+    if (!speedData || !speedData.length) {
+      return null;
+    }
+
+    const adjustedTime = time - speedOffset;
+    const index = Math.floor(adjustedTime);
+    
+    if (index >= speedData.length) {
+      return speedData[speedData.length - 1].speed;
+    }
+    if (index < 0) {
+      return speedData[0].speed;
+    }
+    
+    const fraction = adjustedTime - index;
+    const currentPoint = speedData[index];
+    const nextPoint = speedData[Math.min(index + 1, speedData.length - 1)];
+    
+    return currentPoint.speed + (nextPoint.speed - currentPoint.speed) * fraction;
+  };
+
   if (isLoading) return <div>Loading...</div>;
   if (error || !videoData) return <div>Error: {error || 'Failed to load data'}</div>;
 
   const currentSpeed = getCurrentSpeed(currentTime, videoData.speed_data);
+
+  console.log('Speed data length:', videoData.speed_data.length);
 
   return (
     <Container maxWidth="lg">
@@ -119,6 +170,21 @@ const VideoAnnotation: React.FC = () => {
           onReady={handleVideoReady}
           ref={videoRef}
         />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <SpeedOffsetControls
+            onOffsetChange={handleOffsetChange}
+            currentOffset={speedOffset}
+          />
+          {hasUnsavedChanges && (
+            <Button 
+              variant="contained" 
+              color="primary" 
+              onClick={saveChanges}
+            >
+              Сохранить изменения
+            </Button>
+          )}
+        </Box>
         <Timeline
           currentTime={currentTime}
           onTimeChange={handleTimeUpdate}
@@ -128,6 +194,7 @@ const VideoAnnotation: React.FC = () => {
           speedData={videoData.speed_data}
           currentTime={currentTime}
           videoDuration={videoDuration}
+          speedOffset={speedOffset}
         />
       </Box>
     </Container>
