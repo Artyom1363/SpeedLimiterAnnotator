@@ -86,20 +86,11 @@ const VideoAnnotation: React.FC = () => {
 
   const handleTimeUpdate = (time: number) => {
     setCurrentTime(time);
-    if (videoRef.current && Math.abs(videoRef.current.currentTime - time) > 1.0) {
+    if (videoRef.current) {
       const currentVideoTime = videoRef.current.currentTime;
-      const targetTime = Math.max(0, Math.min(time, videoDuration));
-      const step = (targetTime - currentVideoTime) / 10;
-      
-      let frame = 0;
-      const animate = () => {
-        if (frame < 10 && videoRef.current) {
-          videoRef.current.currentTime = currentVideoTime + step * frame;
-          frame++;
-          requestAnimationFrame(animate);
-        }
-      };
-      animate();
+      if (Math.abs(currentVideoTime - time) > 0.5) {
+        videoRef.current.currentTime = time;
+      }
     }
   };
 
@@ -207,6 +198,15 @@ const VideoAnnotation: React.FC = () => {
     }
   };
 
+  const handleSegmentUpdate = (segmentId: string, startTime: number, endTime: number) => {
+    setSegments(prev => prev.map(segment =>
+      segment.id === segmentId
+        ? { ...segment, startTime, endTime }
+        : segment
+    ));
+    setHasUnsavedChanges(true);
+  };
+
   if (isLoading) return <div>Loading...</div>;
   if (error || !videoData) return <div>Error: {error || 'Failed to load data'}</div>;
 
@@ -269,6 +269,7 @@ const VideoAnnotation: React.FC = () => {
           getCurrentSpeed={(time) => getCurrentSpeed(time, videoData.speed_data)}
           onSegmentClick={handleSegmentClick}
           activeSegment={activeSegment}
+          onSegmentUpdate={handleSegmentUpdate}
         />
         <SpeedChart
           speedData={videoData.speed_data}
