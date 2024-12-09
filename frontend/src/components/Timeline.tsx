@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Box, Slider } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { IconButton } from '@mui/material';
 import { Segment } from '../types/segment';
+import SegmentInfo from './SegmentInfo';
 
 interface TimelineProps {
   currentTime: number;
@@ -10,6 +11,7 @@ interface TimelineProps {
   videoDuration: number;
   segments: Segment[];
   onSegmentDelete: (segmentId: string) => void;
+  getCurrentSpeed: (time: number) => number | null;
 }
 
 const Timeline: React.FC<TimelineProps> = ({
@@ -17,8 +19,11 @@ const Timeline: React.FC<TimelineProps> = ({
   onTimeChange,
   videoDuration,
   segments,
-  onSegmentDelete
+  onSegmentDelete,
+  getCurrentSpeed
 }) => {
+  const [hoveredSegment, setHoveredSegment] = useState<Segment | null>(null);
+
   const handleSliderChange = (_event: Event, newValue: number | number[]) => {
     onTimeChange(newValue as number);
   };
@@ -51,7 +56,15 @@ const Timeline: React.FC<TimelineProps> = ({
               }
             }
           }}
+          onMouseEnter={() => setHoveredSegment(segment)}
+          onMouseLeave={() => setHoveredSegment(null)}
         >
+          {hoveredSegment?.id === segment.id && (
+            <SegmentInfo 
+              segment={segment} 
+              currentSpeed={getCurrentSpeed(segment.startTime)} 
+            />
+          )}
           <Box
             className="segment-controls"
             sx={{

@@ -10,6 +10,7 @@ import {
   Tooltip,
 } from 'chart.js';
 import { Box } from '@mui/material';
+import { Segment } from '../types/segment';
 
 ChartJS.register(
   CategoryScale,
@@ -28,19 +29,39 @@ interface SpeedChartProps {
   currentTime: number;
   videoDuration: number;
   speedOffset: number;
+  segments: Segment[];
 }
 
 const SpeedChart: React.FC<SpeedChartProps> = ({
   speedData,
   currentTime,
   videoDuration,
-  speedOffset
+  speedOffset,
+  segments
 }) => {
-  // Преобразуем данные с учетом смещения
-  const adjustedData = speedData.map((point, index) => ({
-    timestamp: index + speedOffset, // Добавляем смещение к времени
-    speed: point.speed
-  }));
+  // Преобразуем данные с учетом смещения и корректировок скорости
+  const adjustedData = speedData.map((point, index) => {
+    const timestamp = index + speedOffset;
+    let speed = point.speed;
+
+    // Проверяем, находится ли точка в каком-либо сегменте корректировки скорости
+    const speedAdjustmentSegment = segments.find(
+      segment => 
+        segment.type === 'speed_adjustment' &&
+        timestamp >= segment.startTime &&
+        timestamp <= segment.endTime &&
+        segment.adjustedSpeed !== undefined
+    );
+
+    if (speedAdjustmentSegment) {
+      speed = speedAdjustmentSegment.adjustedSpeed!;
+    }
+
+    return {
+      timestamp,
+      speed
+    };
+  });
 
   const data = {
     datasets: [
@@ -52,7 +73,7 @@ const SpeedChart: React.FC<SpeedChartProps> = ({
         })),
         borderColor: 'rgb(75, 192, 192)',
         backgroundColor: 'rgba(75, 192, 192, 0.5)',
-        pointRadius: 0, // Убираем точки для более гладкого графика
+        pointRadius: 0,
       },
     ],
   };
@@ -74,7 +95,6 @@ const SpeedChart: React.FC<SpeedChartProps> = ({
           display: true,
           text: 'Время (с)'
         },
-        // Возвращаем скользящее окно ±10 секунд от текущего времени
         min: Math.max(0, currentTime - 10),
         max: Math.min(videoDuration, currentTime + 10)
       }

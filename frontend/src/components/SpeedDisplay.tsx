@@ -3,9 +3,10 @@ import { Box, Typography } from '@mui/material';
 
 interface SpeedDisplayProps {
   speed: number | null;
+  isIrrelevant?: boolean;
 }
 
-const SpeedDisplay: React.FC<SpeedDisplayProps> = ({ speed }) => {
+const SpeedDisplay: React.FC<SpeedDisplayProps> = ({ speed, isIrrelevant }) => {
   return (
     <Box 
       sx={{
@@ -24,8 +25,8 @@ const SpeedDisplay: React.FC<SpeedDisplayProps> = ({ speed }) => {
       <Typography variant="h6" color="text.secondary" gutterBottom>
         Текущая скорость
       </Typography>
-      <Typography variant="h3" component="div">
-        {speed !== null ? `${speed.toFixed(1)} км/ч` : '-'}
+      <Typography variant="h3" component="div" color={isIrrelevant ? 'error.main' : 'inherit'}>
+        {isIrrelevant ? 'Нерелевантно' : (speed !== null ? `${speed.toFixed(1)} км/ч` : '-')}
       </Typography>
     </Box>
   );

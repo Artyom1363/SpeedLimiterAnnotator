@@ -9,6 +9,7 @@ import axiosInstance from '../config/axios';
 import SpeedChart from './SpeedChart';
 import SegmentManager from './SegmentManager';
 import { Segment } from '../types/segment';
+import SegmentEditor from './SegmentEditor';
 
 interface VideoData {
   video_id: string;
@@ -42,7 +43,10 @@ const VideoAnnotation: React.FC = () => {
   const [speedOffset, setSpeedOffset] = useState(0);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const videoRef = useRef<VideoPlayerRef>(null);
-  const [segments, setSegments] = useState<Segment[]>([]);
+  const [segments, setSegments] = useState<Segment[]>(() => {
+    const savedSegments = localStorage.getItem(`segments_${videoId}`);
+    return savedSegments ? JSON.parse(savedSegments) : [];
+  });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -166,16 +170,51 @@ const VideoAnnotation: React.FC = () => {
     setHasUnsavedChanges(true);
   };
 
+  const handleSegmentSpeedChange = (segmentId: string, newSpeed: number) => {
+    setSegments(prev => prev.map(segment => 
+      segment.id === segmentId 
+        ? { ...segment, adjustedSpeed: newSpeed }
+        : segment
+    ));
+    setHasUnsavedChanges(true);
+  };
+
+  useEffect(() => {
+    if (videoId && segments.length > 0) {
+      localStorage.setItem(`segments_${videoId}`, JSON.stringify(segments));
+    }
+  }, [segments, videoId]);
+
+  const getCurrentSpeedForSegment = (time: number, speedData: TimelineData[]): number | null => {
+    const activeSegment = segments.find(
+      segment => time >= segment.startTime && time <= segment.endTime
+    );
+
+    if (activeSegment?.type === 'speed_adjustment' && activeSegment.adjustedSpeed !== undefined) {
+      return activeSegment.adjustedSpeed;
+    }
+
+    return getCurrentSpeed(time, speedData);
+  };
+
   if (isLoading) return <div>Loading...</div>;
   if (error || !videoData) return <div>Error: {error || 'Failed to load data'}</div>;
 
-  const currentSpeed = getCurrentSpeed(currentTime, videoData.speed_data);
+  const currentSpeed = getCurrentSpeedForSegment(currentTime, videoData.speed_data);
 
   console.log('Speed data length:', videoData.speed_data.length);
 
   return (
     <Container maxWidth="lg">
-      <SpeedDisplay speed={currentSpeed} />
+      <SpeedDisplay 
+        speed={currentSpeed} 
+        isIrrelevant={segments.some(
+          segment => 
+            segment.type === 'irrelevant' && 
+            currentTime >= segment.startTime && 
+            currentTime <= segment.endTime
+        )} 
+      />
       <Box sx={{ py: 4 }}>
         <VideoPlayer
           videoId={videoData.video_id}
@@ -198,23 +237,35 @@ const VideoAnnotation: React.FC = () => {
             </Button>
           )}
         </Box>
+        <SegmentManager
+          currentTime={currentTime}
+          videoDuration={videoDuration}
+          onSegmentCreate={handleSegmentCreate}
+        />
+        {segments.map(segment => (
+          segment.type === 'speed_adjustment' && (
+            <SegmentEditor
+              key={segment.id}
+              segment={segment}
+              currentSpeed={getCurrentSpeed(segment.startTime, videoData.speed_data) || 0}
+              onSpeedChange={handleSegmentSpeedChange}
+            />
+          )
+        ))}
         <Timeline
           currentTime={currentTime}
           onTimeChange={handleTimeUpdate}
           videoDuration={videoDuration}
           segments={segments}
           onSegmentDelete={handleSegmentDelete}
+          getCurrentSpeed={(time) => getCurrentSpeed(time, videoData.speed_data)}
         />
-        <SpeedChart 
+        <SpeedChart
           speedData={videoData.speed_data}
           currentTime={currentTime}
           videoDuration={videoDuration}
           speedOffset={speedOffset}
-        />
-        <SegmentManager
-          currentTime={currentTime}
-          videoDuration={videoDuration}
-          onSegmentCreate={handleSegmentCreate}
+          segments={segments}
         />
       </Box>
     </Container>
