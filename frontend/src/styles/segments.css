@@ -1,0 +1,19 @@
+.segment-boundary {
+  width: 8px;
+  height: 100%;
+  position: absolute;
+  cursor: col-resize;
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+.segment-boundary:hover {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.segment-boundary-start {
+  left: 0;
+}
+
+.segment-boundary-end {
+  right: 0;
+} 
