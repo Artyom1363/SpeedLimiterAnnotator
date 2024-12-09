@@ -47,6 +47,7 @@ const VideoAnnotation: React.FC = () => {
     const savedSegments = localStorage.getItem(`segments_${videoId}`);
     return savedSegments ? JSON.parse(savedSegments) : [];
   });
+  const [activeSegment, setActiveSegment] = useState<Segment | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -167,6 +168,9 @@ const VideoAnnotation: React.FC = () => {
 
   const handleSegmentDelete = (segmentId: string) => {
     setSegments(prev => prev.filter(segment => segment.id !== segmentId));
+    if (activeSegment?.id === segmentId) {
+      setActiveSegment(null);
+    }
     setHasUnsavedChanges(true);
   };
 
@@ -195,6 +199,12 @@ const VideoAnnotation: React.FC = () => {
     }
 
     return getCurrentSpeed(time, speedData);
+  };
+
+  const handleSegmentClick = (segment: Segment) => {
+    if (segment.type === 'speed_adjustment') {
+      setActiveSegment(segment);
+    }
   };
 
   if (isLoading) return <div>Loading...</div>;
@@ -242,16 +252,14 @@ const VideoAnnotation: React.FC = () => {
           videoDuration={videoDuration}
           onSegmentCreate={handleSegmentCreate}
         />
-        {segments.map(segment => (
-          segment.type === 'speed_adjustment' && (
-            <SegmentEditor
-              key={segment.id}
-              segment={segment}
-              currentSpeed={getCurrentSpeed(segment.startTime, videoData.speed_data) || 0}
-              onSpeedChange={handleSegmentSpeedChange}
-            />
-          )
-        ))}
+        {activeSegment && activeSegment.type === 'speed_adjustment' && (
+          <SegmentEditor
+            key={activeSegment.id}
+            segment={activeSegment}
+            currentSpeed={getCurrentSpeed(activeSegment.startTime, videoData.speed_data) || 0}
+            onSpeedChange={handleSegmentSpeedChange}
+          />
+        )}
         <Timeline
           currentTime={currentTime}
           onTimeChange={handleTimeUpdate}
@@ -259,6 +267,8 @@ const VideoAnnotation: React.FC = () => {
           segments={segments}
           onSegmentDelete={handleSegmentDelete}
           getCurrentSpeed={(time) => getCurrentSpeed(time, videoData.speed_data)}
+          onSegmentClick={handleSegmentClick}
+          activeSegment={activeSegment}
         />
         <SpeedChart
           speedData={videoData.speed_data}

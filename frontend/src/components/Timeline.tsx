@@ -12,6 +12,8 @@ interface TimelineProps {
   segments: Segment[];
   onSegmentDelete: (segmentId: string) => void;
   getCurrentSpeed: (time: number) => number | null;
+  onSegmentClick: (segment: Segment) => void;
+  activeSegment: Segment | null;
 }
 
 const Timeline: React.FC<TimelineProps> = ({
@@ -20,7 +22,9 @@ const Timeline: React.FC<TimelineProps> = ({
   videoDuration,
   segments,
   onSegmentDelete,
-  getCurrentSpeed
+  getCurrentSpeed,
+  onSegmentClick,
+  activeSegment
 }) => {
   const [hoveredSegment, setHoveredSegment] = useState<Segment | null>(null);
 
@@ -41,14 +45,17 @@ const Timeline: React.FC<TimelineProps> = ({
       {segments.map(segment => (
         <Box
           key={segment.id}
+          onClick={() => onSegmentClick(segment)}
           sx={{
             position: 'absolute',
             left: `${(segment.startTime / videoDuration) * 100}%`,
             width: `${((segment.endTime - segment.startTime) / videoDuration) * 100}%`,
             height: '100%',
             bgcolor: segment.type === 'speed_adjustment' ? 'yellow' : 'red',
-            opacity: 0.5,
+            opacity: activeSegment?.id === segment.id ? 0.8 : 0.5,
             top: '15px',
+            cursor: 'pointer',
+            border: activeSegment?.id === segment.id ? '2px solid #666' : 'none',
             '&:hover': {
               opacity: 0.7,
               '& .segment-controls': {
