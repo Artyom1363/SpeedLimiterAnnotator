@@ -7,6 +7,7 @@ import { uploadStart, uploadSuccess, uploadFailure } from '../store/slices/uploa
 import axiosInstance from '../config/axios';
 import { toast } from 'react-toastify';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 interface FileUploadState {
   file: File | null;
@@ -24,10 +25,12 @@ const csvColumnFormat = [
 
 const UploadForm: React.FC = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const [videoFile, setVideoFile] = useState<FileUploadState>({ file: null, progress: 0 });
   const [csvFile, setCsvFile] = useState<FileUploadState>({ file: null, progress: 0 });
   const [buttonFile, setButtonFile] = useState<FileUploadState>({ file: null, progress: 0 });
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadedVideoId, setUploadedVideoId] = useState<string | null>(null);
 
   const validateCsvFile = async (file: File): Promise<boolean> => {
     return new Promise((resolve) => {
@@ -175,6 +178,7 @@ const UploadForm: React.FC = () => {
 
     try {
       const videoId = await uploadVideo();
+      setUploadedVideoId(videoId);
       toast.success('Video uploaded successfully!');
 
       if (csvFile.file) {
@@ -196,6 +200,12 @@ const UploadForm: React.FC = () => {
       toast.error(`Upload failed: ${errorMessage}`);
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const handleStartAnnotation = () => {
+    if (uploadedVideoId) {
+      navigate(`/annotate/${uploadedVideoId}`);
     }
   };
 
@@ -314,6 +324,20 @@ const UploadForm: React.FC = () => {
         >
           {isUploading ? 'Uploading...' : 'Upload All Files'}
         </Button>
+
+        {/* Добавляем кнопку перехода к разметке */}
+        {uploadedVideoId && (
+          <Box sx={{ mt: 2, textAlign: 'center' }}>
+            <Button
+              variant="contained"
+              color="success"
+              onClick={handleStartAnnotation}
+              sx={{ mt: 2 }}
+            >
+              Перейти к разметке загруженного видео
+            </Button>
+          </Box>
+        )}
       </Box>
     </Paper>
   );

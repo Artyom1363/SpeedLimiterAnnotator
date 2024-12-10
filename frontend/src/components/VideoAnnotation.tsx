@@ -10,6 +10,8 @@ import SpeedChart from './SpeedChart';
 import SegmentManager from './SegmentManager';
 import { Segment } from '../types/segment';
 import SegmentEditor from './SegmentEditor';
+import { toast } from 'react-toastify';
+import ThankYouModal from './ThankYouModal';
 
 interface VideoData {
   video_id: string;
@@ -42,6 +44,7 @@ const VideoAnnotation: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [speedOffset, setSpeedOffset] = useState(0);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isThankYouModalOpen, setIsThankYouModalOpen] = useState(false);
   const videoRef = useRef<VideoPlayerRef>(null);
   const [segments, setSegments] = useState<Segment[]>(() => {
     const savedSegments = localStorage.getItem(`segments_${videoId}`);
@@ -107,13 +110,17 @@ const VideoAnnotation: React.FC = () => {
     if (!hasUnsavedChanges) return;
 
     try {
-      await axiosInstance.post(`/api/annotations/${videoId}/shift_timestamp`, {
-        timestamp_offset: Number(speedOffset.toFixed(1))
-      });
       setHasUnsavedChanges(false);
+      setIsThankYouModalOpen(true);
     } catch (err) {
       console.error('Error saving changes:', err);
+      toast.error('Ошибка при сохранении изменений');
     }
+  };
+
+  const handleNextVideo = () => {
+    setIsThankYouModalOpen(false);
+    toast.info('Функция перехода к следующему видео находится в разработке');
   };
 
   useEffect(() => {
@@ -279,9 +286,13 @@ const VideoAnnotation: React.FC = () => {
           segments={segments}
         />
       </Box>
+      <ThankYouModal 
+        open={isThankYouModalOpen}
+        onClose={() => setIsThankYouModalOpen(false)}
+        onNextVideo={handleNextVideo}
+      />
     </Container>
   );
 };
-
 export default VideoAnnotation;
 export {};

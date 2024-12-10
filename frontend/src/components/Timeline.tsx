@@ -35,10 +35,12 @@ const Timeline: React.FC<TimelineProps> = ({
 
   const handleTimelineClick = (e: React.MouseEvent) => {
     if (!timelineRef.current) return;
+    
     const rect = timelineRef.current.getBoundingClientRect();
     const clickPosition = (e.clientX - rect.left) / rect.width;
-    const newTime = clickPosition * videoDuration;
-    onTimeChange(Math.max(0, Math.min(newTime, videoDuration)));
+    const newTime = Math.max(0, Math.min(clickPosition * videoDuration, videoDuration));
+    
+    onTimeChange(newTime);
   };
 
   const handleSegmentResize = (e: React.MouseEvent, segmentId: string, edge: 'start' | 'end') => {
